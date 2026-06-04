@@ -5,7 +5,8 @@ import { AppCard } from "@/components/ui/AppCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { getAgentAnalysis } from "@/features/agent-panel/api";
-import type { AgentAnalysisRecord } from "@/features/agent-panel/types";
+import type { AnalysisRecord } from "@/services/analysis.service";
+import AnalysisTable from "@/pages/supervisor/analysis/components/AnalysisTable";
 
 /**
  * Agent Analysis Page (Read-only)
@@ -13,7 +14,7 @@ import type { AgentAnalysisRecord } from "@/features/agent-panel/types";
  * Agent cannot upload or trigger analysis (supervisor-only feature).
  */
 export default function AgentAnalysisPage() {
-  const [records, setRecords] = useState<AgentAnalysisRecord[]>([]);
+  const [records, setRecords] = useState<AnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,7 +25,8 @@ export default function AgentAnalysisPage() {
     setMessage(null);
     try {
       const result = await getAgentAnalysis();
-      setRecords(result.data);
+      // The backend returns an array of AnalysisRecord objects cast to any
+      setRecords(result.data as unknown as AnalysisRecord[]);
       if (result.message) {
         setMessage(result.message);
       }
@@ -91,44 +93,17 @@ export default function AgentAnalysisPage() {
           description="Once your supervisors analyze your calls, the results will appear here."
         />
       ) : (
-        <AppCard padding="md">
-          <div className="space-y-3">
-            {records.map((record) => (
-              <div
-                key={record.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-4"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-fg">{record.agentId}</p>
-                  <p className="text-xs text-fg-subtle">
-                    {new Date(record.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {record.sentiment && (
-                    <span className="rounded-full border border-border bg-bg-muted px-2 py-1 text-xs text-fg-muted">
-                      {record.sentiment}
-                    </span>
-                  )}
-                  {record.score !== null && (
-                    <span className="text-sm font-semibold text-accent">
-                      {record.score}%
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      "rounded-full border px-2 py-1 text-xs",
-                      record.status === "Complete"
-                        ? "border-success/40 bg-success/15 text-success"
-                        : "border-info/40 bg-info/15 text-info",
-                    )}
-                  >
-                    {record.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <AppCard padding="none">
+          <AnalysisTable
+            data={records}
+            onUpdateRecord={(updatedRecord) => {
+              setRecords((prev) =>
+                prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r))
+              );
+            }}
+            onRefetch={fetchRecords}
+            isReadOnly={true}
+          />
         </AppCard>
       )}
     </PageContainer>

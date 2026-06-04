@@ -38,7 +38,7 @@ export async function getAgentAnalysis(filters?: {
   if (filters?.scoreMax !== undefined) params.append("scoreMax", filters.scoreMax.toString());
   
   const { data } = await api.get<{ success: boolean; data: AgentAnalysisRecord[]; message?: string }>(
-    `/agent-panel/analysis?${params.toString()}`
+    `/analysis/my-records?${params.toString()}`
   );
   return data;
 }

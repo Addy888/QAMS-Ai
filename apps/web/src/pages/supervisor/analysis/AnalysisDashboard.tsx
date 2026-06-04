@@ -7,7 +7,7 @@ import AnalysisTable from "./components/AnalysisTable";
 import { Download, RefreshCw, Loader2, Upload } from "lucide-react";
 import { type AnalysisRecord } from "@/services/analysis.service";
 import { toast } from "sonner";
-import { getApiBaseUrl } from "@/services/api";
+import { getApiBaseUrl, api } from "@/services/api";
 
 const AnalysisDashboard = () => {
   const [analysisRecords, setAnalysisRecords] = useState<AnalysisRecord[]>([]);
@@ -51,16 +51,11 @@ const AnalysisDashboard = () => {
 
       setAnalysisRecords(prev => [optimisticRecord, ...prev]);
 
-      const response = await fetch(`${getApiBaseUrl()}/analysis/upload`, {
-        method: "POST",
-        body: formData,
+      const response = await api.post('/analysis/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       if (result.success && result.recording) {
         toast.success("Call recording uploaded successfully! Starting AI pipeline...", { id: toastId });
@@ -121,10 +116,8 @@ const AnalysisDashboard = () => {
         params.append("scoreMax", "59");
       }
 
-      const response = await fetch(`${getApiBaseUrl()}/analysis/recordings?${params.toString()}`);
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-      const result = await response.json();
+      const response = await api.get(`/analysis/recordings?${params.toString()}`);
+      const result = response.data;
 
       if (result.success) {
         setAnalysisRecords(result.data ?? []);
@@ -199,11 +192,8 @@ const AnalysisDashboard = () => {
     setSyncing(true);
     const toastId = toast.loading("Syncing latest calls and launching pending AI jobs...");
     try {
-      const response = await fetch(`${getApiBaseUrl()}/analysis/sync`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Sync failed");
-      const result = await response.json();
+      const response = await api.post('/analysis/sync');
+      const result = response.data;
       
       toast.success(result.message || "Dashboard successfully synchronized!", { id: toastId });
       await fetchAnalysisRecords(false);
@@ -237,12 +227,8 @@ const AnalysisDashboard = () => {
       }
       params.append("format", format);
 
-      const url = `${getApiBaseUrl()}/analysis/export?${params.toString()}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Export failed with status: ${response.status}`);
-      
-      const blob = await response.blob();
+      const response = await api.get(`/analysis/export?${params.toString()}`, { responseType: 'blob' });
+      const blob = response.data;
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;

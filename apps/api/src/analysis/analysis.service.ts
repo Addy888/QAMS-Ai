@@ -522,12 +522,130 @@ export class AnalysisService implements OnModuleInit {
       ];
     }
 
-    return this.prisma.recording.findMany({
+    const records = await this.prisma.recording.findMany({
       where,
       orderBy: {
         createdAt: "desc",
       },
     });
+
+    const agentIds = [...new Set(records.map(r => r.agentId).filter(Boolean))];
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { id: { in: agentIds } },
+          { username: { in: agentIds } }
+        ]
+      },
+      select: { id: true, username: true, name: true }
+    });
+
+    return records.map(record => {
+      const user = users.find(u => u.id === record.agentId || u.username === record.agentId);
+      return {
+        ...record,
+        agentId: user ? user.name || user.username : record.agentId,
+      };
+    });
+  }
+
+  async getMyRecords(user: any, filters?: any) {
+    if (!user || (!user.id && !user.username)) {
+      throw new Error("Unauthorized: Invalid agent identity");
+    }
+
+    const where: any = {
+      agentId: {
+        in: [user.id, user.username],
+      },
+    };
+
+    if (filters?.status) {
+      let statusVal = filters.status;
+      if (statusVal.toLowerCase() === 'completed') statusVal = 'Completed';
+      else if (statusVal.toLowerCase() === 'pending') statusVal = 'Pending';
+      else if (statusVal.toLowerCase() === 'processing') statusVal = 'Processing';
+      else if (statusVal.toLowerCase() === 'failed') statusVal = 'Failed';
+      else if (statusVal.toLowerCase() === 'retrying') statusVal = 'Retrying';
+      where.status = statusVal;
+    }
+
+    if (filters?.sentiment) {
+      where.sentiment = { contains: filters.sentiment };
+    }
+
+    const minScore = filters?.scoreMin ? Number(filters.scoreMin) : undefined;
+    const maxScore = filters?.scoreMax ? Number(filters.scoreMax) : undefined;
+
+    if (minScore !== undefined || maxScore !== undefined) {
+      where.score = {};
+      if (minScore !== undefined && !isNaN(minScore)) {
+        where.score.gte = minScore;
+      }
+      if (maxScore !== undefined && !isNaN(maxScore)) {
+        where.score.lte = maxScore;
+      }
+    }
+
+    if (filters?.timeRange) {
+      const now = new Date();
+      let start: Date | null = null;
+      let end: Date | null = null;
+
+      if (filters.timeRange === "today") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      } else if (filters.timeRange === "yesterday") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+      } else if (filters.timeRange === "last7") {
+        start = new Date();
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+      } else if (filters.timeRange === "last30") {
+        start = new Date();
+        start.setDate(start.getDate() - 30);
+        start.setHours(0, 0, 0, 0);
+      }
+
+      if (start) {
+        where.createdAt = {
+          gte: start,
+          ...(end ? { lte: end } : {}),
+        };
+      }
+    }
+
+    if (filters?.search) {
+      const searchVal = filters.search;
+      where.OR = [
+        { id: { contains: searchVal } },
+        { sentiment: { contains: searchVal } },
+        { tone: { contains: searchVal } },
+        { status: { contains: searchVal } },
+        { summary: { contains: searchVal } },
+        { transcription: { contains: searchVal } },
+      ];
+    }
+
+    const records = await this.prisma.recording.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Verify ownership against strict records
+    const strictRecords = records.filter(record => 
+      record.agentId === user.username || 
+      record.agentId === user.id
+    );
+
+    // Map to real name
+    return strictRecords.map(record => ({
+      ...record,
+      agentId: user.username
+    }));
   }
 
   async getDashboardStats() {

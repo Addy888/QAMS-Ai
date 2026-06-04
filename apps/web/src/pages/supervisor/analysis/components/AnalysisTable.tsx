@@ -6,12 +6,13 @@ import StatusBadge from "./StatusBadge";
 import AnalysisDetailsModal from "./AnalysisDetailsModal";
 import { cn } from "@/lib/utils";
 import { analyzeRecording, type AnalysisRecord } from "@/services/analysis.service";
-import { getApiBaseUrl } from "@/services/api";
+import { getApiBaseUrl, api } from "@/services/api";
 
 interface AnalysisTableProps {
   data: AnalysisRecord[];
   onUpdateRecord: (record: AnalysisRecord) => void;
   onRefetch?: () => void;
+  isReadOnly?: boolean;
 }
 
 const TooltipText = ({ text, className, title }: { text: string; className?: string; title?: string }) => {
@@ -37,6 +38,7 @@ const AnalysisTable = ({
   data,
   onUpdateRecord,
   onRefetch,
+  isReadOnly = false,
 }: AnalysisTableProps) => {
   const [selectedRecord, setSelectedRecord] = useState<AnalysisRecord | null>(
     null,
@@ -121,12 +123,10 @@ const AnalysisTable = ({
     );
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/analysis/reanalyze/${id}`, {
-        method: "POST",
-      });
+      const response = await api.post(`/analysis/reanalyze/${id}`);
+      const result = response.data;
 
-      const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) {
+      if (!result?.success) {
         throw new Error(
           result?.error || result?.message || "Failed to start reanalysis",
         );
@@ -192,11 +192,8 @@ const AnalysisTable = ({
     );
 
     try {
-      const url = `${getApiBaseUrl()}/analysis/export?format=pdf&search=${record.id}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to generate PDF report");
-
-      const blob = await response.blob();
+      const response = await api.get(`/analysis/export?format=pdf&search=${record.id}`, { responseType: 'blob' });
+      const blob = response.data;
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
@@ -398,19 +395,21 @@ const AnalysisTable = ({
                             <FileText className="h-4 w-4" />
                           </button>
 
-                          <button
-                            onClick={() => handleReanalyze(item.id)}
-                            disabled={analyzingId === item.id || isInProgress}
-                            className="rounded-md p-1.5 text-fg-subtle transition-all hover:bg-bg-muted hover:text-accent disabled:opacity-30"
-                            title="Reanalyze Call"
-                          >
-                            <RefreshCw
-                              className={cn(
-                                "h-4 w-4",
-                                analyzingId === item.id && "animate-spin",
-                              )}
-                            />
-                          </button>
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => handleReanalyze(item.id)}
+                              disabled={analyzingId === item.id || isInProgress}
+                              className="rounded-md p-1.5 text-fg-subtle transition-all hover:bg-bg-muted hover:text-accent disabled:opacity-30"
+                              title="Reanalyze Call"
+                            >
+                              <RefreshCw
+                                className={cn(
+                                  "h-4 w-4",
+                                  analyzingId === item.id && "animate-spin",
+                                )}
+                              />
+                            </button>
+                          )}
 
                           <button
                             onClick={() => handleDownloadTranscript(item)}
@@ -430,7 +429,7 @@ const AnalysisTable = ({
                             <BookOpen className="h-4 w-4" />
                           </button>
 
-                          {(item.status === "Pending" || item.status === "Failed") &&
+                          {!isReadOnly && (item.status === "Pending" || item.status === "Failed") &&
                             analyzingId !== item.id && (
                               <button
                                 onClick={() => handleAnalyze(item.id)}

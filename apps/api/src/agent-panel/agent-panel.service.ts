@@ -8,6 +8,7 @@ import { AGENT_VISIBLE_STATUSES, AuditStatus } from "../audits/audit-status.enum
 
 interface AuthorizedActor {
   id: string;
+  username: string;
   role: Role;
 }
 
@@ -174,33 +175,102 @@ export class AgentPanelService {
   async getAnalysis(actor: AuthorizedActor, filters: AnalysisFilters) {
     this.requireAgent(actor);
 
-    // Check if analysis table exists in your schema
-    // This is a placeholder — adjust based on your actual analysis schema
     try {
-      // If you have an analysis table linked to agents:
-      // const records = await this.prisma.analysisRecording.findMany({
-      //   where: {
-      //     agentId: actor.id,
-      //     // Apply filters...
-      //   },
-      // });
-      // return records;
-
-      // If no analysis table, return empty
-      return {
-        success: true,
-        data: [],
-        message: "Analysis feature not yet connected to agent schema",
+      const where: any = {
+        agentId: {
+          in: [actor.id, actor.username],
+        },
       };
-    } catch (e) {
-      // Table doesn't exist, return empty
+
+      if (filters?.status) {
+        let statusVal = filters.status;
+        if (statusVal.toLowerCase() === 'completed') statusVal = 'Completed';
+        else if (statusVal.toLowerCase() === 'pending') statusVal = 'Pending';
+        else if (statusVal.toLowerCase() === 'processing') statusVal = 'Processing';
+        else if (statusVal.toLowerCase() === 'failed') statusVal = 'Failed';
+        else if (statusVal.toLowerCase() === 'retrying') statusVal = 'Retrying';
+        where.status = statusVal;
+      }
+
+      if (filters?.sentiment) {
+        where.sentiment = { contains: filters.sentiment };
+      }
+
+      const minScore = filters?.scoreMin ? Number(filters.scoreMin) : undefined;
+      const maxScore = filters?.scoreMax ? Number(filters.scoreMax) : undefined;
+
+      if (minScore !== undefined || maxScore !== undefined) {
+        where.score = {};
+        if (minScore !== undefined && !isNaN(minScore)) {
+          where.score.gte = minScore;
+        }
+        if (maxScore !== undefined && !isNaN(maxScore)) {
+          where.score.lte = maxScore;
+        }
+      }
+
+      if (filters?.timeRange) {
+        const now = new Date();
+        let start: Date | null = null;
+        let end: Date | null = null;
+
+        if (filters.timeRange === "today") {
+          start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        } else if (filters.timeRange === "yesterday") {
+          start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+          end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+        } else if (filters.timeRange === "last7") {
+          start = new Date();
+          start.setDate(start.getDate() - 7);
+          start.setHours(0, 0, 0, 0);
+        } else if (filters.timeRange === "last30") {
+          start = new Date();
+          start.setDate(start.getDate() - 30);
+          start.setHours(0, 0, 0, 0);
+        }
+
+        if (start) {
+          where.createdAt = {
+            gte: start,
+            ...(end ? { lte: end } : {}),
+          };
+        }
+      }
+
+      if (filters?.search) {
+        const searchVal = filters.search;
+        where.OR = [
+          { id: { contains: searchVal } },
+          { sentiment: { contains: searchVal } },
+          { tone: { contains: searchVal } },
+          { status: { contains: searchVal } },
+          { summary: { contains: searchVal } },
+          { transcription: { contains: searchVal } },
+        ];
+      }
+
+      const records = await this.prisma.recording.findMany({
+        where,
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
       return {
         success: true,
+        data: records,
+      };
+    } catch (e: any) {
+      console.error("[AgentPanelService] Failed to get analysis:", e);
+      return {
+        success: false,
         data: [],
-        message: "Analysis feature not available",
+        message: "Failed to fetch analysis records",
       };
     }
   }
+
 
   // ---------------------------------------------------------------
   //  Helpers

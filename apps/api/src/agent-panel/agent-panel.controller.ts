@@ -38,6 +38,7 @@ export class AgentPanelController {
   async summary(@CurrentUser() actor: CurrentUserPayload) {
     return this.agentPanel.getSummary({
       id: actor.id,
+      username: actor.username,
       role: actor.role as Role,
     });
   }
@@ -50,6 +51,7 @@ export class AgentPanelController {
   async projects(@CurrentUser() actor: CurrentUserPayload) {
     return this.agentPanel.getProjects({
       id: actor.id,
+      username: actor.username,
       role: actor.role as Role,
     });
   }
@@ -71,6 +73,7 @@ export class AgentPanelController {
     return this.agentPanel.getAnalysis(
       {
         id: actor.id,
+        username: actor.username,
         role: actor.role as Role,
       },
       {

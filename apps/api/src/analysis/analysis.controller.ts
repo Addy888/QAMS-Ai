@@ -1,4 +1,9 @@
-import { Controller, Get, Post, Param, Query, Res, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Res, HttpStatus, UseInterceptors, UploadedFile, UseGuards, ForbiddenException } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
@@ -94,6 +99,8 @@ export class AnalysisController {
   }
 
   @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMIN')
   async getDashboardStats() {
     const stats = await this.analysisService.getDashboardStats();
     return {
@@ -103,6 +110,8 @@ export class AnalysisController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMIN')
   async getAnalysis(@Query() query: any) {
     const records = await this.analysisService.getFilteredAnalysis(query);
     return {
@@ -112,6 +121,8 @@ export class AnalysisController {
   }
 
   @Get('recordings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMIN')
   async getAnalysisRecordings(@Query() query: any) {
     console.log("API HIT: Fetching recordings with query:", query);
     const records = await this.analysisService.getFilteredAnalysis(query);
@@ -122,7 +133,21 @@ export class AnalysisController {
     };
   }
 
+  @Get('my-records')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('AGENT')
+  async getMyRecords(@CurrentUser() user: CurrentUserPayload, @Query() query: any) {
+    console.log("API HIT: Fetching my-records for agent:", user.username);
+    const records = await this.analysisService.getMyRecords(user, query);
+    return {
+       success: true,
+       data: records,
+    };
+  }
+
   @Get('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMIN')
   async exportReport(@Query() query: any, @Res() res: any) {
     try {
       const format = (query.format || 'csv').toLowerCase();
@@ -158,8 +183,16 @@ export class AnalysisController {
   }
 
   @Get(':id')
-  async getAnalysisById(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMIN', 'AGENT')
+  async getAnalysisById(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     const record = await this.analysisService.getAnalysisById(id);
+    
+    // Authorization check for agent
+    if (user.role === 'AGENT' && record.agentId !== user.id && record.agentId !== user.username) {
+      throw new ForbiddenException("You do not have permission to view this analysis record.");
+    }
+
     return {
       success: true,
       data: record,
