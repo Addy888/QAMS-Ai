@@ -65,13 +65,13 @@ function emptyAgg(key: string, label: string, sublabel?: string): AggRow {
 interface ReportsViewProps {
   /**
    * Title shown at the top of the page. The reports view itself is
-   * unaware of who's looking — supervisor scoping is enforced server-
-   * side by the audit list endpoint.
+   * unaware of who's looking — supervisor/agent/admin scoping is enforced 
+   * server-side by the audit list endpoint.
    */
   title: string;
   description?: string;
-  /** Pages with broader scope (admin) want a different empty-state copy. */
-  scope: "supervisor" | "admin";
+  /** Pages with broader scope (admin) or narrower (agent) want different empty-state copy. */
+  scope: "supervisor" | "admin" | "agent";
 }
 
 const QUALITY_TONE: Record<NonNullable<QualityLabel>, string> = {

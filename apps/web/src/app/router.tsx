@@ -14,8 +14,8 @@ import AnalysisDashboard from "@/pages/supervisor/analysis/AnalysisDashboard";
 import ScorecardsPage from "@/pages/admin/ScorecardsPage";
 import AdminUsersPage from "@/pages/admin/UsersPage";
 import AdminReportsPage from "@/pages/admin/ReportsPage";
-import MyAuditsPage from "@/pages/agent/MyAuditsPage";
-import AuditDetailPage from "@/pages/agent/AuditDetailPage";
+import AgentProjectsPage from "@/pages/agent/AgentProjectsPage";
+import AgentAnalysisPage from "@/pages/agent/AgentAnalysisPage";
 import { useAuthStore } from "@/features/auth/store/authStore";
 
 /** Send the user to their role's home, or to login if anonymous. */
@@ -139,27 +139,18 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "/agent/audits",
+        path: "/agent/projects",
         element: (
           <ProtectedRoute allowedRoles={["AGENT"]}>
-            <MyAuditsPage />
+            <AgentProjectsPage />
           </ProtectedRoute>
         ),
       },
       {
-        path: "/agent/audits/:id",
+        path: "/agent/analysis",
         element: (
           <ProtectedRoute allowedRoles={["AGENT"]}>
-            <AuditDetailPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        // "My Scores" sidebar entry — same view, score-focused lens.
-        path: "/agent/scores",
-        element: (
-          <ProtectedRoute allowedRoles={["AGENT"]}>
-            <MyAuditsPage />
+            <AgentAnalysisPage />
           </ProtectedRoute>
         ),
       },

@@ -39,7 +39,9 @@ const app_module_1 = require("./app.module");
 require("class-validator");
 require("class-transformer");
 const http = __importStar(require("http"));
+const runtime_env_1 = require("./runtime/runtime-env");
 async function bootstrap() {
+    (0, runtime_env_1.loadRuntimeEnv)();
     process.on("uncaughtException", (err) => {
         console.error("[FATAL] uncaughtException:", err.message);
         console.error(err.stack);

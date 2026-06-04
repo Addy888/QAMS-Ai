@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
+const runtime_env_1 = require("./runtime/runtime-env");
 const prisma_module_1 = require("./prisma/prisma.module");
 const users_module_1 = require("./users/users.module");
 const auth_module_1 = require("./auth/auth.module");
@@ -17,7 +18,9 @@ const projects_module_1 = require("./projects/projects.module");
 const audits_module_1 = require("./audits/audits.module");
 const scorecards_module_1 = require("./scorecards/scorecards.module");
 const agent_audits_module_1 = require("./agent-audits/agent-audits.module");
+const agent_panel_module_1 = require("./agent-panel/agent-panel.module");
 const analysis_module_1 = require("./analysis/analysis.module");
+(0, runtime_env_1.loadRuntimeEnv)();
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -26,6 +29,7 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
+                envFilePath: (0, runtime_env_1.getEnvFileCandidates)(),
             }),
             prisma_module_1.PrismaModule,
             users_module_1.UsersModule,
@@ -34,6 +38,7 @@ exports.AppModule = AppModule = __decorate([
             scorecards_module_1.ScorecardsModule,
             audits_module_1.AuditsModule,
             agent_audits_module_1.AgentAuditsModule,
+            agent_panel_module_1.AgentPanelModule,
             analysis_module_1.AnalysisModule,
             schedule_1.ScheduleModule.forRoot(),
         ],

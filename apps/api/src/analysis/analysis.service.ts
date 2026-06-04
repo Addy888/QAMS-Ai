@@ -4,8 +4,11 @@ import { TranscriptionService } from "../transcription/transcription.service";
 import { OllamaAnalysisService } from "./ollama-analysis.service";
 import axios from "axios";
 import * as fs from "fs";
-import * as path from "path";
 import * as os from "os";
+import {
+  resolveAudioPath,
+  toStoredAudioPath,
+} from "../runtime/runtime-paths";
 
 @Injectable()
 export class AnalysisService implements OnModuleInit {
@@ -137,10 +140,13 @@ export class AnalysisService implements OnModuleInit {
 
   async createRecordingFromUpload(audioPath: string, agentId?: string) {
     const defaultAgentId = agentId || `AGENT-TEST-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    const storedAudioPath = audioPath.startsWith("uploads/")
+      ? audioPath.replace(/\\/g, "/")
+      : toStoredAudioPath(audioPath);
     const newRecording = await this.prisma.recording.create({
       data: {
         agentId: defaultAgentId,
-        audioPath,
+        audioPath: storedAudioPath,
         status: 'Pending',
         statusReason: 'Call uploaded. Queued for transcription...',
       },
@@ -243,7 +249,7 @@ export class AnalysisService implements OnModuleInit {
       });
 
       // Verify file exists
-      const absolutePath = path.resolve(process.cwd(), recording.audioPath);
+      const absolutePath = resolveAudioPath(recording.audioPath);
       if (!fs.existsSync(absolutePath)) {
         throw new Error(`Audio file not found at path: ${recording.audioPath}`);
       }

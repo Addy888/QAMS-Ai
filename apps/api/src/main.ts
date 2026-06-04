@@ -4,8 +4,10 @@ import { AppModule } from "./app.module";
 import "class-validator";
 import "class-transformer";
 import * as http from "http";
+import { loadRuntimeEnv } from "./runtime/runtime-env";
 
 async function bootstrap() {
+  loadRuntimeEnv();
   // ── Global crash handlers (print to Vercel logs) ──
   process.on("uncaughtException", (err) => {
     console.error("[FATAL] uncaughtException:", err.message);

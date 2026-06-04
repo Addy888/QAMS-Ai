@@ -14,6 +14,25 @@ interface AnalysisTableProps {
   onRefetch?: () => void;
 }
 
+const TooltipText = ({ text, className, title }: { text: string; className?: string; title?: string }) => {
+  const displayTitle = title || text;
+  if (!text || text === "—" || text.includes("Processing...") || text.includes("Wait") || text.includes("Calculat")) {
+    return <span className={className}>{text}</span>;
+  }
+  
+  return (
+    <div className="group/tooltip relative inline-flex items-center cursor-pointer max-w-full">
+      <span className={cn("block max-w-[140px] truncate", className)}>{text}</span>
+      <div className="pointer-events-none invisible absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[250px] opacity-0 transition-all duration-300 group-hover/tooltip:visible group-hover/tooltip:opacity-100">
+        <div className="rounded-md bg-surface border border-border shadow-elev-2 px-3 py-2 text-sm text-fg whitespace-normal text-left shadow-lg">
+          {displayTitle}
+        </div>
+        <div className="absolute left-1/2 -bottom-[5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface"></div>
+      </div>
+    </div>
+  );
+};
+
 const AnalysisTable = ({
   data,
   onUpdateRecord,
@@ -211,7 +230,7 @@ const AnalysisTable = ({
   return (
     <>
       <div className="w-full overflow-hidden rounded-xl border border-border bg-surface shadow-elev-1">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-4">
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-border bg-bg-muted/50">
@@ -222,10 +241,10 @@ const AnalysisTable = ({
                   Language
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                  Sentiment
+                  Score
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                  Score
+                  Sentiment
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle whitespace-nowrap">
                   Opening Status
@@ -269,7 +288,7 @@ const AnalysisTable = ({
                   return (
                     <tr
                       key={item.id}
-                      className="group transition-colors hover:bg-bg-muted/30"
+                      className="group transition-colors hover:bg-bg-muted/30 relative"
                     >
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-fg">
@@ -291,26 +310,15 @@ const AnalysisTable = ({
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "block max-w-[150px] truncate text-sm",
-                            isInProgress ? "text-info italic" : "text-fg",
-                          )}
-                          title={item.sentiment || ""}
-                        >
-                          {displayField(item.sentiment)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
                         {item.score !== null ? (
                           <span
                             className={cn(
-                              "text-sm font-bold",
-                              item.score >= 80
-                                ? "text-success"
-                                : item.score >= 60
-                                  ? "text-warning"
-                                  : "text-danger",
+                              "inline-flex items-center rounded-md border px-2 py-1 text-sm font-bold shadow-sm transition-transform hover:scale-105",
+                              item.score >= 90
+                                ? "border-success/30 bg-success/10 text-success"
+                                : item.score >= 70
+                                  ? "border-warning/30 bg-warning/10 text-warning"
+                                  : "border-danger/30 bg-danger/10 text-danger",
                             )}
                           >
                             {item.score}%
@@ -329,48 +337,34 @@ const AnalysisTable = ({
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "block max-w-[150px] truncate text-sm",
-                            isInProgress ? "text-info italic" : "text-fg",
-                          )}
-                          title={item.openingStatus || ""}
-                        >
-                          {displayField(item.openingStatus)}
-                        </span>
+                        <TooltipText 
+                          text={displayField(item.sentiment)} 
+                          className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
+                        />
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "block max-w-[150px] truncate text-sm",
-                            isInProgress ? "text-info italic" : "text-fg",
-                          )}
-                          title={item.tone || ""}
-                        >
-                          {displayField(item.tone)}
-                        </span>
+                        <TooltipText 
+                          text={displayField(item.openingStatus)} 
+                          className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
+                        />
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "block max-w-[150px] truncate text-sm",
-                            isInProgress ? "text-info italic" : "text-fg",
-                          )}
-                          title={item.energyLevel || ""}
-                        >
-                          {displayField(item.energyLevel)}
-                        </span>
+                        <TooltipText 
+                          text={displayField(item.tone)} 
+                          className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
+                        />
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "block max-w-[150px] truncate text-sm",
-                            isInProgress ? "text-info italic" : "text-fg",
-                          )}
-                          title={item.activeListening || ""}
-                        >
-                          {displayField(item.activeListening)}
-                        </span>
+                        <TooltipText 
+                          text={displayField(item.energyLevel)} 
+                          className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <TooltipText 
+                          text={displayField(item.activeListening)} 
+                          className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex max-w-[180px] flex-col gap-1">
@@ -381,7 +375,7 @@ const AnalysisTable = ({
                                 : item.status
                             }
                           />
-                          <span className="text-[10px] italic leading-tight text-fg-subtle">
+                          <span className="text-[10px] italic leading-tight text-fg-subtle line-clamp-2">
                             {item.statusReason ||
                               (item.status === "Pending"
                                 ? "Waiting for analysis"

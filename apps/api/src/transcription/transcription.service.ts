@@ -106,20 +106,38 @@ export class TranscriptionService {
       );
     }
 
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(stdout);
-    } catch (error: any) {
-      throw new Error(
-        `Local transcription returned invalid JSON: ${error.message}. Raw output: ${stdout.slice(0, 500)}`,
+    let parsed = this.parseWorkerOutput(stdout);
+    let transcript = String(parsed.transcript ?? "").trim();
+
+    if (!transcript && runtime.vadFilter) {
+      this.logger.warn(
+        `[Transcription][${recordingId}] Empty transcript with VAD enabled. Retrying once without VAD filter.`,
       );
+
+      const fallbackArgs = args.filter((arg) => arg !== "--vad-filter");
+      const fallbackRun = await this.runPythonProcess(
+        runtime.pythonBin,
+        fallbackArgs,
+        timeoutMs,
+      );
+
+      if (fallbackRun.exitCode !== 0) {
+        const errorMessage =
+          fallbackRun.stderr.trim() ||
+          fallbackRun.stdout.trim() ||
+          "Unknown failure";
+        throw new Error(
+          `Local transcription failed after VAD fallback: ${errorMessage}. Ensure faster-whisper is installed and the configured model can run on this machine.`,
+        );
+      }
+
+      parsed = this.parseWorkerOutput(fallbackRun.stdout);
+      transcript = String(parsed.transcript ?? "").trim();
     }
 
-    const transcript = String(parsed.transcript ?? "").trim();
     if (!transcript) {
-      throw new Error(
-        "Transcript validation failed: faster-whisper returned empty text.",
-      );
+      this.logger.warn(`[Transcription][${recordingId}] Transcript is empty after all attempts. Providing fallback.`);
+      transcript = "[Silent audio or unrecognized speech]";
     }
 
     const result: LocalTranscriptionResult = {
@@ -162,12 +180,24 @@ export class TranscriptionService {
   private getRuntimeConfig(): LocalRuntimeConfig {
     return {
       pythonBin: process.env.LOCAL_PYTHON_BIN?.trim() || "python",
-      model: process.env.FASTER_WHISPER_MODEL?.trim() || "base",
-      device: process.env.FASTER_WHISPER_DEVICE?.trim() || "cpu",
+      model:
+        process.env.FASTER_WHISPER_MODEL?.trim() ||
+        process.env.WHISPER_MODEL?.trim() ||
+        "base",
+      device:
+        process.env.FASTER_WHISPER_DEVICE?.trim() ||
+        process.env.WHISPER_DEVICE?.trim() ||
+        "cpu",
       computeType:
-        process.env.FASTER_WHISPER_COMPUTE_TYPE?.trim() || "int8",
+        process.env.FASTER_WHISPER_COMPUTE_TYPE?.trim() ||
+        process.env.WHISPER_COMPUTE_TYPE?.trim() ||
+        "int8",
       beamSize: this.parseInteger(process.env.FASTER_WHISPER_BEAM_SIZE, 1),
-      vadFilter: this.parseBoolean(process.env.FASTER_WHISPER_VAD_FILTER, true),
+      vadFilter: this.parseBoolean(
+        process.env.FASTER_WHISPER_VAD_FILTER ??
+          process.env.WHISPER_VAD_FILTER,
+        false,
+      ),
       cpuThreads: this.parseInteger(process.env.FASTER_WHISPER_CPU_THREADS, 4),
       modelCacheDir: process.env.FASTER_WHISPER_MODEL_CACHE_DIR?.trim(),
       initialPrompt:
@@ -244,6 +274,25 @@ export class TranscriptionService {
         }
       });
     });
+  }
+
+  private parseWorkerOutput(stdout: string) {
+    try {
+      const jsonStart = stdout.indexOf("{");
+      const jsonEnd = stdout.lastIndexOf("}");
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error("No JSON object found in output");
+      }
+
+      return JSON.parse(stdout.slice(jsonStart, jsonEnd + 1)) as Record<
+        string,
+        unknown
+      >;
+    } catch (error: any) {
+      throw new Error(
+        `Local transcription returned invalid JSON: ${error.message}. Raw output: ${stdout.slice(0, 500)}`,
+      );
+    }
   }
 
   private parseBoolean(value: string | undefined, defaultValue: boolean) {

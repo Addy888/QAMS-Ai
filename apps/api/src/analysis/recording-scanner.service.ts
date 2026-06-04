@@ -4,11 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AnalysisService } from './analysis.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  ensureRecordingsDirectory,
+  getRecordingsDirectory,
+  toStoredAudioPath,
+} from '../runtime/runtime-paths';
 
 @Injectable()
 export class RecordingScannerService {
   private readonly logger = new Logger('Scanner');
-  private readonly recordingsPath = path.join(process.cwd(), 'uploads', 'recordings');
+  private readonly recordingsPath = getRecordingsDirectory();
   private isScanning = false;
 
   private processedFiles = new Set<string>();
@@ -47,7 +52,7 @@ export class RecordingScannerService {
     try {
       if (!fs.existsSync(this.recordingsPath)) {
         try {
-          fs.mkdirSync(this.recordingsPath, { recursive: true });
+          ensureRecordingsDirectory();
         } catch (mkdirErr: any) {
           this.logger.warn(`[Scanner] Cannot create recordings directory (read-only filesystem?): ${mkdirErr.message}`);
           return;
@@ -77,7 +82,8 @@ export class RecordingScannerService {
 
       for (const file of audioFiles) {
         try {
-          const audioPath = `uploads/recordings/${file}`;
+          const absoluteAudioPath = path.join(this.recordingsPath, file);
+          const audioPath = toStoredAudioPath(absoluteAudioPath);
           
           // Check if exists
           const existing = await this.prisma.recording.findFirst({

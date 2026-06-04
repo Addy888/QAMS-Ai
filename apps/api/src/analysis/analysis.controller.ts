@@ -4,6 +4,11 @@ import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AnalysisService } from './analysis.service';
+import {
+  ensureRecordingsDirectory,
+  getRecordingsDirectory,
+  toStoredAudioPath,
+} from '../runtime/runtime-paths';
 
 @Controller('analysis')
 export class AnalysisController {
@@ -21,8 +26,8 @@ export class AnalysisController {
       },
       uploadPath: {
         relative: 'uploads/recordings',
-        absolute: path.join(process.cwd(), 'uploads', 'recordings'),
-        exists: fs.existsSync(path.join(process.cwd(), 'uploads', 'recordings')),
+        absolute: getRecordingsDirectory(),
+        exists: fs.existsSync(getRecordingsDirectory()),
       },
       recordingFiles: [] as string[],
       requiredConfiguration: [
@@ -31,7 +36,7 @@ export class AnalysisController {
     };
 
     try {
-      const recordingsDir = path.join(process.cwd(), 'uploads', 'recordings');
+      const recordingsDir = getRecordingsDirectory();
       if (fs.existsSync(recordingsDir)) {
         const files = fs.readdirSync(recordingsDir);
         diagnostics.recordingFiles = files.slice(0, 10); // Show first 10
@@ -48,7 +53,7 @@ export class AnalysisController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'recordings');
+          const dir = ensureRecordingsDirectory();
           try {
             if (!fs.existsSync(dir)) {
               fs.mkdirSync(dir, { recursive: true });
@@ -78,7 +83,9 @@ export class AnalysisController {
     if (!file) {
       throw new Error('No file uploaded or file format is invalid.');
     }
-    const audioPath = `uploads/recordings/${file.filename}`;
+    const absoluteAudioPath =
+      file.path || path.join(getRecordingsDirectory(), file.filename);
+    const audioPath = toStoredAudioPath(absoluteAudioPath);
     const newRecording = await this.analysisService.createRecordingFromUpload(audioPath);
     return {
       success: true,

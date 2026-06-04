@@ -2,13 +2,12 @@ import {
   BarChart3,
   ClipboardList,
   FolderKanban,
-  History,
   LayoutDashboard,
   UserSquare2,
   Users,
+  BrainCircuit,
 } from "lucide-react";
 import type { NavGroup, UserRole } from "@/types/navigation";
-import { BrainCircuit } from "lucide-react";
 
 /**
  * Centralized, role-aware sidebar configuration.
@@ -34,7 +33,7 @@ export const SIDEBAR_CONFIG: Record<UserRole, NavGroup[]> = {
     {
       heading: "Insights",
       items: [
-        { label: "Quality overview", path: "/admin/reports", icon: BarChart3 },
+        { label: "Reports", path: "/admin/reports", icon: BarChart3 },
       ],
     },
   ],
@@ -56,8 +55,6 @@ export const SIDEBAR_CONFIG: Record<UserRole, NavGroup[]> = {
     {
       heading: "Operations",
       items: [
-        { label: "Audits", path: "/supervisor/audits", icon: ClipboardList },
-        { label: "Reports", path: "/supervisor/reports", icon: BarChart3 },
         { label: "Analysis", path: "/supervisor/analysis", icon: BrainCircuit },
       ],
     },
@@ -71,17 +68,15 @@ export const SIDEBAR_CONFIG: Record<UserRole, NavGroup[]> = {
       ],
     },
     {
-      heading: "Performance",
+      heading: "Workspace",
       items: [
-        { label: "My Audits", path: "/agent/audits", icon: ClipboardList },
-        // "My Scores" removed — /agent/scores renders the same MyAuditsPage
-        // component as /agent/audits with no lens applied, making it a
-        // pure duplicate. "Audit History" below covers the reviewed-only view.
-        {
-          label: "Audit History",
-          path: "/agent/audits?lens=REVIEWED",
-          icon: History,
-        },
+        { label: "Projects", path: "/agent/projects", icon: FolderKanban },
+      ],
+    },
+    {
+      heading: "Operations",
+      items: [
+        { label: "Analysis", path: "/agent/analysis", icon: BrainCircuit },
       ],
     },
   ],
