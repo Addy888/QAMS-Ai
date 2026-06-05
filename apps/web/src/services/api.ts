@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useAuthStore } from "@/features/auth/store/authStore";
 
-let activeBaseUrl = import.meta.env.NEXT_PUBLIC_API_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
+let activeBaseUrl = import.meta.env.NEXT_PUBLIC_API_URL || import.meta.env.VITE_API_URL || "http://192.168.1.14:3001";
 let isDiscovered = false;
 
 export const getApiBaseUrl = () => activeBaseUrl;
@@ -10,12 +10,12 @@ export async function discoverActivePort() {
   if (isDiscovered || import.meta.env.NEXT_PUBLIC_API_URL || import.meta.env.VITE_API_URL) {
     return activeBaseUrl;
   }
-  const ports = [3000, 3001, 3002];
+  const ports = [3001, 3002, 3003];
   for (const port of ports) {
     try {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 100);
-      const url = `http://localhost:${port}`;
+      const url = `http://192.168.1.14:${port}`;
       await fetch(url, { method: "GET", signal: controller.signal });
       clearTimeout(id);
       activeBaseUrl = url;
