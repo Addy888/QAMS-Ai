@@ -28,7 +28,7 @@ export class OllamaAnalysisService {
   async analyzeTranscript(transcript: string): Promise<AIAnalysisResult> {
     const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
     const ollamaModel = process.env.OLLAMA_MODEL || "llama3";
-    const ollamaTimeout = Number(process.env.OLLAMA_TIMEOUT_MS) || 60000;
+    const ollamaTimeout = Number(process.env.OLLAMA_TIMEOUT_MS) || 300000;
 
     // Generate a unique analysis nonce to prevent Ollama from caching/repeating
     const analysisNonce = crypto.randomBytes(4).toString("hex");
@@ -100,6 +100,7 @@ ${transcript}`;
     const startTime = Date.now();
     try {
       this.logger.log(`Calling Ollama API at ${ollamaUrl} with model ${ollamaModel} (timeout: ${ollamaTimeout}ms, nonce: ${analysisNonce})...`);
+      this.logger.log(`Prompt size being sent to Ollama: ${prompt.length} characters`);
       
       let result = await this.callOllama(ollamaUrl, ollamaModel, prompt, ollamaTimeout);
       const durationMs = Date.now() - startTime;
@@ -160,6 +161,7 @@ ${transcript}`;
       );
 
       const raw = response.data?.response || "";
+      this.logger.log(`Raw Ollama response: ${raw}`);
       return this.parseJSONSafely(raw, prompt);
     } catch (error: any) {
       this.logger.error(`Error in callOllama: ${error.message}`);
