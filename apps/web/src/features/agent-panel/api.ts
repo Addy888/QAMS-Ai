@@ -12,8 +12,8 @@ import type {
  */
 
 export async function getAgentPanelSummary(): Promise<AgentPanelSummary> {
-  const { data } = await api.get<AgentPanelSummary>("/agent-panel/summary");
-  return data;
+  const { data } = await api.get<{ success: boolean; data: AgentPanelSummary }>("/analysis/my-stats");
+  return data.data;
 }
 
 export async function getAgentProjects(): Promise<AgentProject[]> {

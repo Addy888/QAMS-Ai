@@ -648,6 +648,63 @@ export class AnalysisService implements OnModuleInit {
     }));
   }
 
+  async getMyStats(user: any) {
+    if (!user || (!user.id && !user.username)) {
+      throw new Error("Unauthorized: Invalid agent identity");
+    }
+
+    const where: any = {
+      agentId: {
+        in: [user.id, user.username],
+      },
+    };
+
+    const total = await this.prisma.recording.count({ where });
+    
+    const completed = await this.prisma.recording.count({
+      where: { ...where, status: 'Completed' },
+    });
+    
+    const pending = await this.prisma.recording.count({
+      where: {
+        ...where,
+        status: {
+          notIn: ['Completed', 'Failed', 'Timeout'],
+        },
+      },
+    });
+
+    const failed = await this.prisma.recording.count({
+      where: {
+        ...where,
+        status: {
+          in: ['Failed', 'Timeout'],
+        },
+      },
+    });
+
+    const completedRecords = await this.prisma.recording.findMany({
+      where: { ...where, status: 'Completed' },
+      select: { score: true },
+    });
+
+    const scoredRecords = completedRecords.filter(r => typeof r.score === 'number' && r.score > 0);
+    const avgScore = scoredRecords.length > 0
+      ? Math.round(scoredRecords.reduce((acc, curr) => acc + (curr.score as number), 0) / scoredRecords.length)
+      : 0;
+
+    return {
+      totalAudits: total,
+      reviewedCount: completed,
+      pendingReviewCount: pending,
+      fatalCount: failed,
+      averageScore: avgScore,
+      publishedCount: completed,
+      latestScore: avgScore,
+      latestAuditAt: new Date().toISOString()
+    };
+  }
+
   async getDashboardStats() {
     const total = await this.prisma.recording.count();
     const completed = await this.prisma.recording.count({

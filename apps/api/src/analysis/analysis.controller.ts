@@ -54,6 +54,7 @@ export class AnalysisController {
   }
 
   @Post('upload')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -84,14 +85,16 @@ export class AnalysisController {
       },
     }),
   )
-  async uploadFile(@UploadedFile() file: any) {
+  async uploadFile(@UploadedFile() file: any, @CurrentUser() user: CurrentUserPayload) {
     if (!file) {
       throw new Error('No file uploaded or file format is invalid.');
     }
     const absoluteAudioPath =
       file.path || path.join(getRecordingsDirectory(), file.filename);
     const audioPath = toStoredAudioPath(absoluteAudioPath);
-    const newRecording = await this.analysisService.createRecordingFromUpload(audioPath);
+    // Stamp the recording with the logged-in user's username for ownership
+    const agentId = user?.username || undefined;
+    const newRecording = await this.analysisService.createRecordingFromUpload(audioPath, agentId);
     return {
       success: true,
       recording: newRecording,
@@ -142,6 +145,17 @@ export class AnalysisController {
     return {
        success: true,
        data: records,
+    };
+  }
+
+  @Get('my-stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('AGENT')
+  async getMyStats(@CurrentUser() user: CurrentUserPayload) {
+    const stats = await this.analysisService.getMyStats(user);
+    return {
+      success: true,
+      data: stats,
     };
   }
 
