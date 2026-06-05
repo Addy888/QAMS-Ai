@@ -179,6 +179,25 @@ export class AnalysisController {
     }
   }
 
+  @Post('debug-transcription/:id')
+  async debugTranscription(@Param('id') id: string) {
+    console.log('========================');
+    console.log('DEBUG TRANSCRIPTION API HIT');
+    console.log('RECORDING ID:', id);
+    console.log('========================');
+
+    try {
+      const result = await this.analysisService.debugTranscription(id);
+      return result;
+    } catch (error: any) {
+      console.error('DEBUG TRANSCRIPTION ERROR:', error);
+      return {
+        success: false,
+        error: error?.message || 'Unknown error',
+      };
+    }
+  }
+
   @Post('reanalyze/:id')
   async reanalyze(@Param('id') id: string) {
     console.log('========================');

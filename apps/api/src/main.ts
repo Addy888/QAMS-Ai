@@ -23,7 +23,7 @@ async function bootstrap() {
   console.log(`OLLAMA_URL = ${process.env.OLLAMA_URL ?? "[NOT SET]"}`);
   console.log(`LOCAL_PYTHON_BIN = ${process.env.LOCAL_PYTHON_BIN ?? "[NOT SET]"}`);
 
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
   try {
     console.log("[BOOT] Creating NestFactory...");

@@ -3,6 +3,10 @@ import json
 import os
 import sys
 
+# Disable colorama/tqdm color handling on Windows consoles to avoid console-mode errors
+# and ensure non-interactive runs won't hang during initialization.
+os.environ.setdefault('NO_COLOR', '1')
+os.environ.setdefault('ANSI_COLORS_DISABLED', '1')
 
 DEFAULT_INITIAL_PROMPT = (
     "This is a real Indian customer support call. The conversation may contain "
@@ -55,6 +59,8 @@ def main() -> int:
         )
 
     try:
+        sys.stderr.write(f"[DEBUG] Loading model: {args.model} on {args.device}\n")
+        sys.stderr.flush()
         model = WhisperModel(
             args.model,
             device=args.device,
@@ -62,6 +68,8 @@ def main() -> int:
             cpu_threads=max(args.cpu_threads, 1),
             download_root=args.model_cache_dir or None,
         )
+        sys.stderr.write(f"[DEBUG] Model loaded. Starting transcription...\n")
+        sys.stderr.flush()
 
         segments, info = model.transcribe(
             args.audio_path,
@@ -75,6 +83,7 @@ def main() -> int:
 
         transcript_parts = []
         segment_items = []
+        raw_segment_count = 0
 
         for segment in segments:
             text = (segment.text or "").strip()
@@ -93,6 +102,11 @@ def main() -> int:
         duration_seconds = getattr(info, "duration", None)
         if duration_seconds is None and segment_items:
             duration_seconds = segment_items[-1]["end"]
+
+        detected_lang = getattr(info, "language", None)
+        lang_prob = getattr(info, "language_probability", None)
+        sys.stderr.write(f"[DEBUG] Transcription complete: language={detected_lang} probability={lang_prob} segments={len(segment_items)} duration={duration_seconds} transcript_chars={len(transcript)}\n")
+        sys.stderr.flush()
 
         payload = {
             "transcript": transcript,

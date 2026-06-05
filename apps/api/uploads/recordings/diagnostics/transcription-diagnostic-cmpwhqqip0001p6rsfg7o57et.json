@@ -1,0 +1,11 @@
+{
+  "audioPath": "uploads/recordings/file-1780395886793-641636641.mp3",
+  "status": "FAILED_TRANSCRIPTION",
+  "errorMessage": "Transcription process timed out after 120000ms.",
+  "rawOutput": null,
+  "detectedLanguage": null,
+  "segmentCount": 0,
+  "audioDiagnostics": null,
+  "segments": null,
+  "timestamp": "2026-06-03T10:11:46.588Z"
+}

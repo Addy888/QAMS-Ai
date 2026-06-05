@@ -261,6 +261,7 @@ export class AnalysisService implements OnModuleInit {
 
       let rawTranscript = "";
       let detectedLanguage = "";
+      let transcriptionResult: any = null;
       let transcribeErrorOccurred: any = null;
       const transcribeRetryDelays = [2000, 5000, 10000];
 
@@ -280,7 +281,7 @@ export class AnalysisService implements OnModuleInit {
             await new Promise((res) => setTimeout(res, delay));
           }
 
-          const transcriptionResult = await this.transcriptionService.transcribeAudio(recording.audioPath, id);
+          transcriptionResult = await this.transcriptionService.transcribeAudio(recording.audioPath, id);
           rawTranscript = transcriptionResult.transcript;
           detectedLanguage = transcriptionResult.detectedLanguageCode || "";
           if (rawTranscript && rawTranscript.trim() !== "") {
@@ -294,8 +295,9 @@ export class AnalysisService implements OnModuleInit {
       }
 
       // Backend Validation: verify transcript exists, verify is not empty, verify recording processed successfully
-      if (transcribeErrorOccurred || !rawTranscript || rawTranscript.trim() === "") {
-        throw new Error("Transcription unavailable. AI analysis could not be completed.");
+      if (!rawTranscript || rawTranscript.trim() === "") {
+        await this.handleFailedTranscription(id, recording.audioPath, transcriptionResult, transcribeErrorOccurred);
+        return;
       }
 
       const transcriptionDuration = Date.now() - transcriptionStart;
@@ -417,6 +419,54 @@ export class AnalysisService implements OnModuleInit {
     }
   }
 
+  private async handleFailedTranscription(
+    id: string,
+    audioPath: string,
+    transcriptionResult: any,
+    error: any,
+  ) {
+    const diagnostics = {
+      audioPath,
+      status: "FAILED_TRANSCRIPTION",
+      errorMessage: error?.message || null,
+      rawOutput: transcriptionResult?.rawOutput || null,
+      detectedLanguage: transcriptionResult?.detectedLanguageCode || null,
+      segmentCount: transcriptionResult?.segmentCount ?? 0,
+      audioDiagnostics: transcriptionResult?.audioDiagnostics || null,
+      segments: transcriptionResult?.segments ?? null,
+      timestamp: new Date().toISOString(),
+    };
+
+    const diagnosticFile = await this.saveTranscriptionDiagnostic(id, diagnostics);
+    const statusReason = `Transcription failed: empty or invalid Whisper output. Diagnostics saved to ${diagnosticFile}.`;
+
+    await this.prisma.recording.update({
+      where: { id },
+      data: {
+        status: "FAILED_TRANSCRIPTION",
+        statusReason: statusReason.substring(0, 190),
+      },
+    });
+
+    this.logger.error(`[STT][${id}] Marked as FAILED_TRANSCRIPTION: ${statusReason}`);
+  }
+
+  private async saveTranscriptionDiagnostic(id: string, diagnostics: any) {
+    try {
+      const diagnosticsFolder = path.join(process.cwd(), "uploads", "recordings", "diagnostics");
+      if (!fs.existsSync(diagnosticsFolder)) {
+        fs.mkdirSync(diagnosticsFolder, { recursive: true });
+      }
+      const fileName = `transcription-diagnostic-${id}.json`;
+      const filePath = path.join(diagnosticsFolder, fileName);
+      fs.writeFileSync(filePath, JSON.stringify(diagnostics, null, 2), { encoding: "utf8" });
+      return filePath;
+    } catch (err: any) {
+      this.logger.error(`[STT][${id}] Failed to save transcription diagnostic: ${err.message}`);
+      return "unknown";
+    }
+  }
+
   async getAnalysisById(id: string) {
     const recording = await this.prisma.recording.findUnique({
       where: { id },
@@ -425,6 +475,38 @@ export class AnalysisService implements OnModuleInit {
       throw new NotFoundException(`Analysis record with ID ${id} not found`);
     }
     return recording;
+  }
+
+  async debugTranscription(id: string) {
+    const recording = await this.prisma.recording.findUnique({
+      where: { id },
+    });
+
+    if (!recording) {
+      throw new NotFoundException(`Recording with ID ${id} not found`);
+    }
+
+    const absolutePath = path.resolve(process.cwd(), recording.audioPath);
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`Audio file not found at path: ${recording.audioPath}`);
+    }
+
+    const transcriptionResult = await this.transcriptionService.transcribeAudio(recording.audioPath, id);
+
+    return {
+      success: true,
+      recordingId: id,
+      audioPath: recording.audioPath,
+      filePath: absolutePath,
+      transcription: transcriptionResult.transcript,
+      detectedLanguage: transcriptionResult.detectedLanguageCode,
+      languageProbability: transcriptionResult.detectedLanguageProbability,
+      segmentCount: transcriptionResult.segmentCount,
+      segments: transcriptionResult.segments,
+      rawOutput: transcriptionResult.rawOutput,
+      audioDiagnostics: transcriptionResult.audioDiagnostics,
+      runtimeDiagnostics: this.transcriptionService.getDiagnostics(),
+    };
   }
 
   async getFilteredAnalysis(filters?: {
@@ -445,13 +527,14 @@ export class AnalysisService implements OnModuleInit {
     }
 
     if (filters?.status) {
-      let statusVal = filters.status;
-      if (statusVal.toLowerCase() === 'completed') statusVal = 'Completed';
-      else if (statusVal.toLowerCase() === 'pending') statusVal = 'Pending';
-      else if (statusVal.toLowerCase() === 'processing') statusVal = 'Processing';
-      else if (statusVal.toLowerCase() === 'failed') statusVal = 'Failed';
-      else if (statusVal.toLowerCase() === 'retrying') statusVal = 'Retrying';
+      const statusString = filters.status.toLowerCase();
+      let statusVal: any = filters.status;
 
+      if (statusString === 'completed') statusVal = 'Completed';
+      else if (statusString === 'pending') statusVal = 'Pending';
+      else if (statusString === 'processing') statusVal = 'Processing';
+      else if (statusString === 'failed') statusVal = { in: ['Failed', 'FAILED_TRANSCRIPTION'] };
+      else if (statusString === 'retrying') statusVal = 'Retrying';
       where.status = statusVal;
     }
 
@@ -532,7 +615,7 @@ export class AnalysisService implements OnModuleInit {
     const pending = await this.prisma.recording.count({
       where: {
         status: {
-          notIn: ['Completed', 'Failed', 'Timeout'],
+          notIn: ['Completed', 'Failed', 'Timeout', 'FAILED_TRANSCRIPTION'],
         },
       },
     });
@@ -605,7 +688,7 @@ export class AnalysisService implements OnModuleInit {
     const pendingOrFailed = await this.prisma.recording.findMany({
       where: {
         status: {
-          in: ["Pending", "Failed"],
+          in: ["Pending", "Failed", "FAILED_TRANSCRIPTION"],
         },
       },
     });

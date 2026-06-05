@@ -1,9 +1,22 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { resolveApiPath, resolveAudioPath } from "../analysis/runtime-paths";
+
+export interface AudioFileDiagnostics {
+  filePath: string;
+  fileSizeBytes: number;
+  extension: string;
+  durationSeconds?: number | null;
+  format?: string | null;
+  codec?: string | null;
+  channels?: number | null;
+  sampleRate?: number | null;
+  bitrate?: string | null;
+  parseError?: string | null;
+}
 
 export interface LocalTranscriptionResult {
   transcript: string;
@@ -11,6 +24,8 @@ export interface LocalTranscriptionResult {
   detectedLanguageProbability: number | null;
   durationSeconds: number | null;
   segmentCount: number;
+  segments: Array<{ start: number; end: number; text: string }>;
+  audioDiagnostics: AudioFileDiagnostics;
   model: string;
   provider: "faster-whisper";
   rawOutput: string;
@@ -50,6 +65,11 @@ export class TranscriptionService {
     }
 
     const scriptPath = this.getTranscriptionScriptPath();
+    const audioDiagnostics = this.getAudioFileDiagnostics(absolutePath);
+    this.logger.log(
+      `[Transcription][${recordingId}] Audio diagnostics: path=${absolutePath} size=${audioDiagnostics.fileSizeBytes} bytes extension=${audioDiagnostics.extension} duration=${audioDiagnostics.durationSeconds ?? 'unknown'} format=${audioDiagnostics.format ?? 'unknown'} codec=${audioDiagnostics.codec ?? 'unknown'} channels=${audioDiagnostics.channels ?? 'unknown'} bitrate=${audioDiagnostics.bitrate ?? 'unknown'}`,
+    );
+
     const args = [
       scriptPath,
       "--audio-path",
@@ -91,7 +111,7 @@ export class TranscriptionService {
     }
 
     const startedAt = Date.now();
-    const timeoutMs = Number(process.env.TRANSCRIPTION_TIMEOUT_MS) || 120000;
+    const timeoutMs = Number(process.env.TRANSCRIPTION_TIMEOUT_MS) || 300000;
     const { stdout, stderr, exitCode } = await this.runPythonProcess(
       runtime.pythonBin,
       args,
@@ -115,21 +135,58 @@ export class TranscriptionService {
       );
     }
 
+    // Log raw whisper output fields for debugging/validation (segments, language, probability, transcript)
+    try {
+      const segs = parsed.segments ?? null;
+      const lang = parsed.detectedLanguageCode ?? parsed.language ?? null;
+      const langProb = parsed.detectedLanguageProbability ?? parsed.language_probability ?? null;
+      const rawTranscriptField = parsed.transcript ?? null;
+      this.logger.log(
+        `[Transcription][${recordingId}] Raw Whisper output preview: segments=${Array.isArray(segs) ? segs.length : 'null'} language=${String(lang)} language_probability=${String(langProb)} transcript_preview="${String(rawTranscriptField).slice(0,200)}"`,
+      );
+      if (Array.isArray(segs)) {
+        // Log first 3 segments for quick inspection
+        for (let i = 0; i < Math.min(3, segs.length); i++) {
+          const s = segs[i] as any;
+          this.logger.log(`[Transcription][${recordingId}] segment[${i}] start=${s?.start} end=${s?.end} text="${String(s?.text ?? '').slice(0,120)}"`);
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`[Transcription][${recordingId}] Failed to log raw Whisper preview: ${e?.message ?? e}`);
+    }
+
     const transcript = String(parsed.transcript ?? "").trim();
-    if (!transcript) {
-      throw new Error(
-        "Transcript validation failed: faster-whisper returned empty text.",
+    const parsedSegments = Array.isArray(parsed.segments)
+      ? parsed.segments.map((segment: any) => ({
+          start: Number(segment.start ?? 0),
+          end: Number(segment.end ?? 0),
+          text: String(segment.text ?? "").trim(),
+        }))
+      : [];
+
+    const reconstructedTranscript = parsedSegments
+      .map((segment) => segment.text)
+      .filter((text) => text)
+      .join(" ")
+      .trim();
+
+    const finalTranscript = transcript || reconstructedTranscript;
+    if (!finalTranscript) {
+      this.logger.warn(
+        `[Transcription][${recordingId}] Empty transcript returned by faster-whisper. segmentCount=${parsedSegments.length} file=${absolutePath}`,
       );
     }
 
     const result: LocalTranscriptionResult = {
-      transcript,
+      transcript: finalTranscript,
       detectedLanguageCode: this.asOptionalString(parsed.detectedLanguageCode),
       detectedLanguageProbability: this.asOptionalNumber(
         parsed.detectedLanguageProbability,
       ),
       durationSeconds: this.asOptionalNumber(parsed.durationSeconds),
-      segmentCount: Number(parsed.segmentCount ?? 0) || 0,
+      segmentCount: parsedSegments.length,
+      segments: parsedSegments,
+      audioDiagnostics,
       model: this.asOptionalString(parsed.model) || runtime.model,
       provider: "faster-whisper",
       rawOutput: stdout,
@@ -159,15 +216,85 @@ export class TranscriptionService {
     };
   }
 
+  private getAudioFileDiagnostics(absolutePath: string): AudioFileDiagnostics {
+    const stats = fs.statSync(absolutePath);
+    const extension = path.extname(absolutePath).toLowerCase();
+    const defaultDiagnostics: AudioFileDiagnostics = {
+      filePath: absolutePath,
+      fileSizeBytes: stats.size,
+      extension,
+      durationSeconds: null,
+      format: null,
+      codec: null,
+      channels: null,
+      sampleRate: null,
+      bitrate: null,
+      parseError: null,
+    };
+
+    try {
+      const ffmpegPath = require("ffmpeg-static");
+      const probeResult = spawnSync(ffmpegPath, ["-i", absolutePath], {
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        encoding: "utf8",
+      });
+
+      const stderr = String(probeResult.stderr || "");
+      const durationMatch = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+      if (durationMatch) {
+        const hours = Number(durationMatch[1]);
+        const minutes = Number(durationMatch[2]);
+        const seconds = Number(durationMatch[3]);
+        const hundredths = Number(durationMatch[4]);
+        defaultDiagnostics.durationSeconds =
+          hours * 3600 + minutes * 60 + seconds + hundredths / 100;
+      }
+
+      const bitrateMatch = stderr.match(/bitrate:\s*([\d\.]+\s*kb\/s)/i);
+      if (bitrateMatch) {
+        defaultDiagnostics.bitrate = bitrateMatch[1].trim();
+      }
+
+      const streamMatch = stderr.match(/Audio:\s*([^,]+),\s*(\d+)\s*Hz,\s*([^,]+),/i);
+      if (streamMatch) {
+        defaultDiagnostics.codec = streamMatch[1].trim();
+        defaultDiagnostics.sampleRate = Number(streamMatch[2]);
+        defaultDiagnostics.channels = streamMatch[3].toLowerCase().includes("stereo") ? 2 : 1;
+      }
+
+      const formatMatch = stderr.match(/Input #0,\s*([^,]+),\s*from/);
+      if (formatMatch) {
+        defaultDiagnostics.format = formatMatch[1].trim();
+      }
+    } catch (err: any) {
+      defaultDiagnostics.parseError = `Failed to parse audio metadata: ${err.message}`;
+      this.logger.warn(
+        `[Transcription][getAudioFileDiagnostics] Could not inspect file ${absolutePath}: ${err.message}`,
+      );
+    }
+
+    return defaultDiagnostics;
+  }
+
   private getRuntimeConfig(): LocalRuntimeConfig {
     return {
       pythonBin: process.env.LOCAL_PYTHON_BIN?.trim() || "python",
-      model: process.env.FASTER_WHISPER_MODEL?.trim() || "base",
-      device: process.env.FASTER_WHISPER_DEVICE?.trim() || "cpu",
+      model:
+        process.env.FASTER_WHISPER_MODEL?.trim() ||
+        process.env.WHISPER_MODEL?.trim() ||
+        "base",
+      device:
+        process.env.FASTER_WHISPER_DEVICE?.trim() ||
+        process.env.WHISPER_DEVICE?.trim() ||
+        "cpu",
       computeType:
-        process.env.FASTER_WHISPER_COMPUTE_TYPE?.trim() || "int8",
+        process.env.FASTER_WHISPER_COMPUTE_TYPE?.trim() ||
+        process.env.WHISPER_COMPUTE_TYPE?.trim() ||
+        "int8",
       beamSize: this.parseInteger(process.env.FASTER_WHISPER_BEAM_SIZE, 1),
-      vadFilter: this.parseBoolean(process.env.FASTER_WHISPER_VAD_FILTER, true),
+      // Default VAD filter to false to avoid over-aggressive pre-filtering on mixed-language audio
+      vadFilter: this.parseBoolean(process.env.FASTER_WHISPER_VAD_FILTER, false),
       cpuThreads: this.parseInteger(process.env.FASTER_WHISPER_CPU_THREADS, 4),
       modelCacheDir: process.env.FASTER_WHISPER_MODEL_CACHE_DIR?.trim(),
       initialPrompt:
