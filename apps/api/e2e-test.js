@@ -12,7 +12,7 @@ function makeRequest(path, token) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const options = {
-      hostname: 'localhost', port: 3000, path, method: 'GET',
+      hostname: 'localhost', port: 3001, path, method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     };
     const req = http.request(options, (res) => {
