@@ -62,6 +62,7 @@ The transcript may contain Hindi, Marathi, Hinglish, or English.
 
 Evaluate these specific aspects and let them DIRECTLY affect your scoring:
 - opening delay (how many seconds before the agent greets or starts assisting?)
+  - The transcript contains timestamps like [0.00s - 1.73s]. Use these to determine EXACTLY when the first meaningful agent response started.
   - Ignore ringing, silence, breathing, background noise, hold music, and customer waiting.
   - Detect the first meaningful agent response.
   - Rating Rules: 0-2 sec = Excellent, 2-5 sec = Good, 5-8 sec = Average, 8-12 sec = Poor, >12 sec = Critical.
@@ -221,12 +222,21 @@ ${transcript}`;
       }
       score = Math.max(35, Math.min(95, score));
 
+      // Safely parse openingDelaySeconds
+      let openingDelaySeconds: number | null = null;
+      if (parsed.openingDelaySeconds !== undefined && parsed.openingDelaySeconds !== null) {
+        const parsedDelay = Number(parsed.openingDelaySeconds);
+        if (Number.isFinite(parsedDelay)) {
+          openingDelaySeconds = parsedDelay;
+        }
+      }
+
       return {
         language: parsed.language || "English",
         sentiment: parsed.sentiment || "Neutral",
         score,
         openingStatus: parsed.openingStatus || "Standard",
-        openingDelaySeconds: typeof parsed.openingDelaySeconds === 'number' ? parsed.openingDelaySeconds : null,
+        openingDelaySeconds,
         openingDelayRating: parsed.openingDelayRating || "Unknown",
         openingDelayReason: parsed.openingDelayReason || "Unknown",
         tone: parsed.tone || this.pickRandom(this.toneLabels),

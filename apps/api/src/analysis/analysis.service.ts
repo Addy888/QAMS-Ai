@@ -266,6 +266,7 @@ export class AnalysisService implements OnModuleInit {
       });
 
       let rawTranscript = "";
+      let timestampedTranscript = "";
       let detectedLanguage = "";
       let transcribeErrorOccurred: any = null;
       const transcribeRetryDelays = [2000, 5000, 10000];
@@ -289,6 +290,15 @@ export class AnalysisService implements OnModuleInit {
           const transcriptionResult = await this.transcriptionService.transcribeAudio(recording.audioPath, id);
           rawTranscript = transcriptionResult.transcript;
           detectedLanguage = transcriptionResult.detectedLanguageCode || "";
+          
+          if (transcriptionResult.segments && transcriptionResult.segments.length > 0) {
+            timestampedTranscript = transcriptionResult.segments
+              .map((s: any) => `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s] ${s.text}`)
+              .join("\n");
+          } else {
+            timestampedTranscript = rawTranscript;
+          }
+          
           if (rawTranscript && rawTranscript.trim() !== "") {
             transcribeErrorOccurred = null;
             break;
@@ -338,7 +348,7 @@ export class AnalysisService implements OnModuleInit {
       const aiStart = Date.now();
 
       // 4. Run AI Analysis via local Ollama Service
-      const parsedResult = await this.ollamaAnalysisService.analyzeTranscript(rawTranscript.trim());
+      const parsedResult = await this.ollamaAnalysisService.analyzeTranscript(timestampedTranscript.trim());
       const aiDuration = Date.now() - aiStart;
       this.logger.log(`[AI][${id}] Ollama analysis completed in ${aiDuration}ms`);
 
@@ -769,7 +779,7 @@ export class AnalysisService implements OnModuleInit {
         energyLevel: null,
         activeListening: null,
         summary: null,
-      },
+      } as any,
     });
 
     // Enqueue

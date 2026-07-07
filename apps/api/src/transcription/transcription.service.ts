@@ -11,6 +11,7 @@ export interface LocalTranscriptionResult {
   detectedLanguageProbability: number | null;
   durationSeconds: number | null;
   segmentCount: number;
+  segments?: Array<{ start: number; end: number; text: string }>;
   model: string;
   provider: "faster-whisper";
   rawOutput: string;
@@ -148,6 +149,7 @@ export class TranscriptionService {
       ),
       durationSeconds: this.asOptionalNumber(parsed.durationSeconds),
       segmentCount: Number(parsed.segmentCount ?? 0) || 0,
+      segments: Array.isArray(parsed.segments) ? parsed.segments as any : undefined,
       model: this.asOptionalString(parsed.model) || runtime.model,
       provider: "faster-whisper",
       rawOutput: stdout,

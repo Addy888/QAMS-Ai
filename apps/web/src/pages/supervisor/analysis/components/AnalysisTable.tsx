@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Play, RefreshCw, Download, BookOpen, Clock, Star } from "lucide-react";
+import { FileText, Play, RefreshCw, Download, BookOpen, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import StatusBadge from "./StatusBadge";
@@ -54,7 +54,7 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
   
   if (ratingLower === "excellent") {
     return {
-      label: `${delaySeconds.toFixed(1)} sec`,
+      label: `🟢 ${delaySeconds.toFixed(1)} sec`,
       subLabel: "Excellent",
       color: "text-success",
       bg: "bg-success/10 border-success/30",
@@ -62,7 +62,7 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
     };
   } else if (ratingLower === "good") {
     return {
-      label: `${delaySeconds.toFixed(1)} sec`,
+      label: `🟢 ${delaySeconds.toFixed(1)} sec`,
       subLabel: "Good",
       color: "text-success",
       bg: "bg-success/10 border-success/30",
@@ -70,7 +70,7 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
     };
   } else if (ratingLower === "average") {
     return {
-      label: `${delaySeconds.toFixed(1)} sec`,
+      label: `🟡 ${delaySeconds.toFixed(1)} sec`,
       subLabel: "Average",
       color: "text-warning",
       bg: "bg-warning/10 border-warning/30",
@@ -78,7 +78,7 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
     };
   } else if (ratingLower === "poor") {
     return {
-      label: `${delaySeconds.toFixed(1)} sec`,
+      label: `🟠 ${delaySeconds.toFixed(1)} sec`,
       subLabel: "Poor",
       color: "text-danger",
       bg: "bg-danger/10 border-danger/30",
@@ -86,7 +86,7 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
     };
   } else if (ratingLower === "critical") {
     return {
-      label: `${delaySeconds.toFixed(1)} sec`,
+      label: `🔴 ${delaySeconds.toFixed(1)} sec`,
       subLabel: "Critical",
       color: "text-danger",
       bg: "bg-danger/10 border-danger/30",
@@ -542,7 +542,6 @@ const AnalysisTable = ({
                                   badge.color
                                 )}
                               >
-                                <Clock className="h-3 w-3" />
                                 {badge.label}
                               </span>
                               <span className={cn("text-[10px] font-bold uppercase", badge.color)}>
