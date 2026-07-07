@@ -449,11 +449,14 @@ model Recording {
   sentiment       String?
   score           Int?
   result          String?
-  openingStatus   String?
-  openingDelay    String?
-  openingScore    Int?
-  openingFeedback String?
-  tone            String?
+  openingStatus       String?
+  openingDelay        String?
+  openingScore        Int?
+  openingFeedback     String?
+  openingDelaySeconds Float?
+  openingDelayRating  String?
+  openingDelayReason  String?
+  tone                String?
 
   energyLevel     String?
   activeListening String?

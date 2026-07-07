@@ -178,12 +178,16 @@ export function formatAuditScore(
   totalScore?: number | null,
   applicablePoints?: number | null,
 ): string {
-  if (finalScore === null || finalScore === undefined) return "—";
+  // Check if finalScore is a valid finite number
+  if (finalScore === null || finalScore === undefined || !Number.isFinite(finalScore)) return "—";
+  
   if (
     totalScore !== null &&
     totalScore !== undefined &&
+    Number.isFinite(totalScore) &&
     applicablePoints !== null &&
-    applicablePoints !== undefined
+    applicablePoints !== undefined &&
+    Number.isFinite(applicablePoints)
   ) {
     return `${totalScore} / ${applicablePoints} (${finalScore.toFixed(1)}%)`;
   }

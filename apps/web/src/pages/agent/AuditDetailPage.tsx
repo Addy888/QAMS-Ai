@@ -349,9 +349,9 @@ export default function AuditDetailPage() {
                 </span>
               );
             })()}
-            {audit.fatalTriggered && audit.totalScore !== null && (
+            {audit.fatalTriggered && audit.totalScore !== null && Number.isFinite(audit.totalScore) && (
               <p className="text-xs text-fg-subtle">
-                {audit.applicablePoints !== null
+                {audit.applicablePoints !== null && Number.isFinite(audit.applicablePoints) && audit.applicablePoints > 0
                   ? `Raw (before fatal): ${audit.totalScore} / ${audit.applicablePoints} (${((audit.totalScore / audit.applicablePoints) * 100).toFixed(1)}%)`
                   : `Raw score (before fatal): ${audit.totalScore.toFixed(1)}%`}
               </p>

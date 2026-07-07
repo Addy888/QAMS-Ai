@@ -113,7 +113,7 @@ function SectionBlock(props: {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {typeof section.sectionScore === "number" && (
+          {typeof section.sectionScore === "number" && Number.isFinite(section.sectionScore) && (
             <StatusBadge tone={sectionFatalHit ? "danger" : "info"}>
               {section.sectionScore.toFixed(0)}%
             </StatusBadge>

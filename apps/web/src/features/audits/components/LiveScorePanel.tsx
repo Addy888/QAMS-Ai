@@ -209,16 +209,16 @@ export function LiveScorePanel({ audit, answers }: LiveScorePanelProps) {
 
   // "50 / 75 (66.7%)" — the canonical display format.
   const finalLabel = (() => {
-    if (preview.finalPct === null) return "—";
+    if (preview.finalPct === null || !Number.isFinite(preview.finalPct)) return "—";
     if (preview.applicablePoints === null) return `${preview.finalPct.toFixed(1)}%`;
     return `${preview.earnedPoints} / ${preview.applicablePoints} (${preview.finalPct.toFixed(1)}%)`;
   })();
 
   // Raw percentage is shown only when fatal forces the final to 0 so the
   // supervisor can still see the underlying earned percentage.
-  const showRaw = preview.fatal && preview.rawPct !== null;
+  const showRaw = preview.fatal && preview.rawPct !== null && Number.isFinite(preview.rawPct);
   const rawLabel =
-    preview.rawPct === null
+    preview.rawPct === null || !Number.isFinite(preview.rawPct)
       ? "—"
       : preview.applicablePoints !== null
         ? `${preview.earnedPoints} / ${preview.applicablePoints} (${preview.rawPct.toFixed(1)}%)`
@@ -314,7 +314,7 @@ export function LiveScorePanel({ audit, answers }: LiveScorePanelProps) {
                 s.fatal ? "text-danger" : "text-fg-muted",
               )}
             >
-              {s.percent === null ? "—" : `${s.percent.toFixed(0)}%`}
+              {s.percent === null || !Number.isFinite(s.percent) ? "—" : `${s.percent.toFixed(0)}%`}
             </span>
           </div>
         ))}

@@ -7,6 +7,9 @@ export interface AIAnalysisResult {
   sentiment: string;
   score: number;
   openingStatus: string;
+  openingDelaySeconds: number | null;
+  openingDelayRating: string;
+  openingDelayReason: string;
   tone: string;
   energyLevel: string;
   activeListening: string;
@@ -58,6 +61,11 @@ Transcript statistics for context:
 The transcript may contain Hindi, Marathi, Hinglish, or English.
 
 Evaluate these specific aspects and let them DIRECTLY affect your scoring:
+- opening delay (how many seconds before the agent greets or starts assisting?)
+  - Ignore ringing, silence, breathing, background noise, hold music, and customer waiting.
+  - Detect the first meaningful agent response.
+  - Rating Rules: 0-2 sec = Excellent, 2-5 sec = Good, 5-8 sec = Average, 8-12 sec = Poor, >12 sec = Critical.
+  - If you cannot determine the delay confidently, use null and "Unknown".
 - empathy (does the agent show genuine concern?)
 - confidence (is the agent sure of their responses?)
 - interruptions (does anyone cut the other person off?)
@@ -84,6 +92,9 @@ Return ONLY valid JSON matching this exact structure:
   "sentiment": "specific sentiment",
   "score": <number 35-95 based on actual quality>,
   "openingStatus": "specific opening assessment",
+  "openingDelaySeconds": <number or null>,
+  "openingDelayRating": "Excellent/Good/Average/Poor/Critical/Unknown",
+  "openingDelayReason": "Brief reason explaining the delay calculation",
   "tone": "unique varied tone descriptor",
   "energyLevel": "unique varied energy descriptor",
   "activeListening": "unique varied listening descriptor",
@@ -215,6 +226,9 @@ ${transcript}`;
         sentiment: parsed.sentiment || "Neutral",
         score,
         openingStatus: parsed.openingStatus || "Standard",
+        openingDelaySeconds: typeof parsed.openingDelaySeconds === 'number' ? parsed.openingDelaySeconds : null,
+        openingDelayRating: parsed.openingDelayRating || "Unknown",
+        openingDelayReason: parsed.openingDelayReason || "Unknown",
         tone: parsed.tone || this.pickRandom(this.toneLabels),
         energyLevel: parsed.energyLevel || this.pickRandom(this.energyLabels),
         activeListening: parsed.activeListening || this.pickRandom(this.listeningLabels),
@@ -332,6 +346,9 @@ ${transcript}`;
       sentiment,
       score: Math.round(score),
       openingStatus: hasGreeting ? this.pickRandom(this.openingLabels.slice(0, 6)) : this.pickRandom(this.openingLabels.slice(6)),
+      openingDelaySeconds: null,
+      openingDelayRating: "Unknown",
+      openingDelayReason: "AI could not determine delay confidently.",
       tone: this.pickRandom(this.toneLabels),
       energyLevel: this.pickRandom(this.energyLabels),
       activeListening: this.pickRandom(this.listeningLabels),

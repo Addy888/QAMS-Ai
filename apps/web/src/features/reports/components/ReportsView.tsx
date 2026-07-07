@@ -287,7 +287,7 @@ export function ReportsView({ title, description, scope }: ReportsViewProps) {
           value={
             loading
               ? "—"
-              : overall.avg === null
+              : overall.avg === null || !Number.isFinite(overall.avg)
                 ? "—"
                 : `${overall.avg.toFixed(1)}%`
           }
@@ -578,7 +578,7 @@ function PerformersCard({
                 </p>
               </div>
               <span className={cn("text-sm font-semibold tabular-nums", toneClass)}>
-                {r.averageScore === null ? "—" : `${r.averageScore.toFixed(1)}%`}
+                {r.averageScore === null || !Number.isFinite(r.averageScore) ? "—" : `${r.averageScore.toFixed(1)}%`}
               </span>
             </li>
           ))}
@@ -634,7 +634,7 @@ function BreakdownTable({
         numeric: true,
         cell: (r) => (
           <span className="text-sm font-semibold tabular-nums text-fg">
-            {r.averageScore === null ? "—" : `${r.averageScore.toFixed(1)}%`}
+            {r.averageScore === null || !Number.isFinite(r.averageScore) ? "—" : `${r.averageScore.toFixed(1)}%`}
           </span>
         ),
       },

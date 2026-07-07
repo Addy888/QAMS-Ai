@@ -6,7 +6,7 @@ import StatusBadge from "./StatusBadge";
 import AnalysisDetailsModal from "./AnalysisDetailsModal";
 import { cn } from "@/lib/utils";
 import { analyzeRecording, type AnalysisRecord } from "@/services/analysis.service";
-import { getApiBaseUrl, api } from "@/services/api";
+import { api } from "@/services/api";
 
 interface AnalysisTableProps {
   data: AnalysisRecord[];
@@ -34,72 +34,74 @@ const TooltipText = ({ text, className, title }: { text: string; className?: str
   );
 };
 
-/**
- * Safely convert any value to a valid number or null
- */
-const safeParseNumber = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  
-  // If it's already a number, check if it's finite
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-  
-  // If it's a string, try to parse it
-  if (typeof value === "string") {
-    // Ignore non-numeric strings like "Pending", "N/A", etc.
-    const trimmed = value.trim();
-    if (trimmed === "" || /[a-zA-Z]/.test(trimmed)) {
-      return null;
-    }
-    
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  
-  return null;
-};
 
 /**
  * Get opening delay badge color and label based on delay in seconds
  * Now completely type-safe - will never crash on invalid input
  */
-const getOpeningDelayBadge = (delayValue: number | string | null | undefined) => {
-  const delaySeconds = safeParseNumber(delayValue);
-  
+const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null, reason: string | null) => {
   if (delaySeconds === null) {
     return { 
-      label: "N/A", 
+      label: "--",
+      subLabel: rating || "Unknown",
       color: "text-fg-subtle", 
       bg: "bg-bg-muted border-border", 
-      tooltip: "Opening delay not available" 
+      tooltip: reason || "Opening delay not available" 
     };
   }
   
-  if (delaySeconds <= 2) {
+  const ratingLower = rating?.toLowerCase() || "";
+  
+  if (ratingLower === "excellent") {
     return {
       label: `${delaySeconds.toFixed(1)} sec`,
+      subLabel: "Excellent",
       color: "text-success",
       bg: "bg-success/10 border-success/30",
-      tooltip: "Excellent! Agent greeted customer promptly within 2 seconds.",
+      tooltip: reason || "Excellent! Agent greeted customer promptly.",
     };
-  } else if (delaySeconds <= 5) {
+  } else if (ratingLower === "good") {
     return {
       label: `${delaySeconds.toFixed(1)} sec`,
+      subLabel: "Good",
+      color: "text-success",
+      bg: "bg-success/10 border-success/30",
+      tooltip: reason || "Slight delay but good.",
+    };
+  } else if (ratingLower === "average") {
+    return {
+      label: `${delaySeconds.toFixed(1)} sec`,
+      subLabel: "Average",
       color: "text-warning",
       bg: "bg-warning/10 border-warning/30",
-      tooltip: "Slight delay. Agent took 2-5 seconds before greeting.",
+      tooltip: reason || "Average delay.",
     };
-  } else {
+  } else if (ratingLower === "poor") {
     return {
       label: `${delaySeconds.toFixed(1)} sec`,
+      subLabel: "Poor",
       color: "text-danger",
       bg: "bg-danger/10 border-danger/30",
-      tooltip: "Late opening! Agent took more than 5 seconds to greet customer.",
+      tooltip: reason || "Poor delay. Took too long.",
+    };
+  } else if (ratingLower === "critical") {
+    return {
+      label: `${delaySeconds.toFixed(1)} sec`,
+      subLabel: "Critical",
+      color: "text-danger",
+      bg: "bg-danger/10 border-danger/30",
+      tooltip: reason || "Critical delay! Agent took very long.",
     };
   }
+
+  // Fallback
+  return {
+    label: `${delaySeconds.toFixed(1)} sec`,
+    subLabel: rating || "Unknown",
+    color: "text-fg-subtle",
+    bg: "bg-bg-muted border-border",
+    tooltip: reason || "Unknown rating",
+  };
 };
 
 /**
@@ -513,7 +515,7 @@ const AnalysisTable = ({
                       </td>
                       <td className="px-6 py-4">
                         {(() => {
-                          const openingDelay = item.openingDelay;
+                          const delaySeconds = item.openingDelaySeconds;
                           
                           // If record is still being processed, show status
                           if (isInProgress) {
@@ -524,19 +526,15 @@ const AnalysisTable = ({
                             );
                           }
                           
-                          // Try to parse the delay value safely
-                          const delaySeconds = safeParseNumber(openingDelay);
-                          
-                          // If no valid delay and analysis is complete, show "—"
-                          if (delaySeconds === null) {
-                            return <span className="text-sm text-fg-subtle">—</span>;
-                          }
-                          
                           // Get the badge configuration
-                          const badge = getOpeningDelayBadge(delaySeconds);
+                          const badge = getOpeningDelayBadge(
+                            delaySeconds ?? null, 
+                            item.openingDelayRating ?? null, 
+                            item.openingDelayReason ?? null
+                          );
                           
                           return (
-                            <div className="group/delay relative inline-flex">
+                            <div className="group/delay relative inline-flex flex-col gap-1 items-start">
                               <span
                                 className={cn(
                                   "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold transition-transform hover:scale-105",
@@ -546,6 +544,9 @@ const AnalysisTable = ({
                               >
                                 <Clock className="h-3 w-3" />
                                 {badge.label}
+                              </span>
+                              <span className={cn("text-[10px] font-bold uppercase", badge.color)}>
+                                {badge.subLabel}
                               </span>
                               <div className="pointer-events-none invisible absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[220px] opacity-0 transition-all duration-300 group-hover/delay:visible group-hover/delay:opacity-100">
                                 <div className="rounded-md bg-surface border border-border shadow-elev-2 px-3 py-2 text-xs text-fg whitespace-normal text-left shadow-lg">

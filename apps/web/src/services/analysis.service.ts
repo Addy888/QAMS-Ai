@@ -19,7 +19,9 @@ export interface AnalysisRecord {
   createdAt: string;
   openingStatus?: string | null;
   openingReason?: string;
-  openingDelay?: number | string | null;  // Backend may return number or string
+  openingDelaySeconds?: number | null;
+  openingDelayRating?: string | null;
+  openingDelayReason?: string | null;
   openingScore?: number | null;
   openingFeedback?: string | null;
   tone?: string | null;

@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           value={
             loading
               ? "—"
-              : auditStats.avgScore === null
+              : auditStats.avgScore === null || !Number.isFinite(auditStats.avgScore)
                 ? "—"
                 : `${auditStats.avgScore.toFixed(1)}%`
           }

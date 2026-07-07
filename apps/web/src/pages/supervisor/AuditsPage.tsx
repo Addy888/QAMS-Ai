@@ -251,7 +251,7 @@ export default function AuditsPage() {
               </span>
               {row.fatalTriggered && rawPct !== null && (
                 <span className="text-[10px] text-fg-subtle">
-                  raw {typeof rawPct === "number" ? `${rawPct.toFixed(1)}%` : "—"}
+                  raw {typeof rawPct === "number" && Number.isFinite(rawPct) ? `${rawPct.toFixed(1)}%` : "—"}
                 </span>
               )}
             </div>
