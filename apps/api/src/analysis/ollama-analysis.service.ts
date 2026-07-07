@@ -113,6 +113,9 @@ ${transcript}`;
     try {
       this.logger.log(`Calling Ollama API at ${ollamaUrl} with model ${ollamaModel} (timeout: ${ollamaTimeout}ms, nonce: ${analysisNonce})...`);
       this.logger.log(`Prompt size being sent to Ollama: ${prompt.length} characters`);
+      console.log("----------------------------------------");
+      console.log("Sending prompt:", prompt);
+      console.log("----------------------------------------");
       
       let result = await this.callOllama(ollamaUrl, ollamaModel, prompt, ollamaTimeout);
       const durationMs = Date.now() - startTime;
@@ -174,6 +177,9 @@ ${transcript}`;
 
       const raw = response.data?.response || "";
       this.logger.log(`Raw Ollama response: ${raw}`);
+      console.log("----------------------------------------");
+      console.log("Raw Ollama Response:", raw);
+      console.log("----------------------------------------");
       return this.parseJSONSafely(raw, prompt);
     } catch (error: any) {
       this.logger.error(`Error in callOllama: ${error.message}`);
@@ -222,23 +228,30 @@ ${transcript}`;
       }
       score = Math.max(35, Math.min(95, score));
 
-      // Safely parse openingDelaySeconds
+      // Safely parse openingDelaySeconds (handling potential snake_case or wrong casing)
       let openingDelaySeconds: number | null = null;
-      if (parsed.openingDelaySeconds !== undefined && parsed.openingDelaySeconds !== null) {
-        const parsedDelay = Number(parsed.openingDelaySeconds);
+      const rawDelay = parsed.openingDelaySeconds !== undefined ? parsed.openingDelaySeconds 
+                     : parsed.opening_delay_seconds !== undefined ? parsed.opening_delay_seconds
+                     : parsed.delaySeconds !== undefined ? parsed.delaySeconds : null;
+                     
+      if (rawDelay !== null && rawDelay !== undefined) {
+        const parsedDelay = Number(rawDelay);
         if (Number.isFinite(parsedDelay)) {
           openingDelaySeconds = parsedDelay;
         }
       }
 
-      return {
+      const rawRating = parsed.openingDelayRating || parsed.opening_delay_rating || parsed.delayRating || "Unknown";
+      const rawReason = parsed.openingDelayReason || parsed.opening_delay_reason || parsed.delayReason || "Unknown";
+
+      const parsedResult = {
         language: parsed.language || "English",
         sentiment: parsed.sentiment || "Neutral",
         score,
         openingStatus: parsed.openingStatus || "Standard",
         openingDelaySeconds,
-        openingDelayRating: parsed.openingDelayRating || "Unknown",
-        openingDelayReason: parsed.openingDelayReason || "Unknown",
+        openingDelayRating: rawRating,
+        openingDelayReason: rawReason,
         tone: parsed.tone || this.pickRandom(this.toneLabels),
         energyLevel: parsed.energyLevel || this.pickRandom(this.energyLabels),
         activeListening: parsed.activeListening || this.pickRandom(this.listeningLabels),
@@ -248,6 +261,12 @@ ${transcript}`;
         resolutionQuality: parsed.resolutionQuality || "Average",
         escalationRisk: parsed.escalationRisk || "Low"
       };
+
+      console.log("----------------------------------------");
+      console.log("Parsed AI Result:", parsedResult);
+      console.log("----------------------------------------");
+
+      return parsedResult;
     } catch (e) {
       this.logger.error(`Failed to parse JSON safely: ${cleaned.substring(0, 200)}`);
       return this.buildHeuristicFallback(raw, transcript);

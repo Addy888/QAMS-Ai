@@ -363,6 +363,14 @@ export class AnalysisService implements OnModuleInit {
 
       const truncate = (str: any, len: number) => String(str || '').substring(0, len);
 
+      console.log("----------------------------------------");
+      console.log("Saving Opening Delay:", {
+        openingDelaySeconds: parsedResult.openingDelaySeconds,
+        openingDelayRating: parsedResult.openingDelayRating,
+        openingDelayReason: parsedResult.openingDelayReason
+      });
+      console.log("----------------------------------------");
+
       await this.prisma.recording.update({
         where: { id },
         data: {
