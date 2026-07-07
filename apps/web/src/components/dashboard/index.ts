@@ -1,15 +1,18 @@
-// Dashboard component exports
+/**
+ * Enterprise Dashboard Components for QAMS
+ * Modern AI Call Quality Monitoring Dashboard
+ */
+
+export { EnhancedDashboardHeader } from "./EnhancedDashboardHeader";
 export { KPICard } from "./KPICard";
 export { ProcessingQueueCards } from "./ProcessingQueueCards";
 export { LiveActivityPanel } from "./LiveActivityPanel";
-export { AgentPerformanceTable } from "./AgentPerformanceTable";
+export { AgentPerformanceTable, type AgentPerformance } from "./AgentPerformanceTable";
 export { QualityBreakdownCards } from "./QualityBreakdownCards";
-export { RecentRecordingsTable } from "./RecentRecordingsTable";
-export { AlertCenterCard } from "./AlertCenterCard";
+export { RecentRecordingsTable, type RecordingItem } from "./RecentRecordingsTable";
+export { AlertCenterCard, type Alert } from "./AlertCenterCard";
+export { PendingActionsCards } from "./PendingActionsCards";
 export { QuickActionCard } from "./QuickActionCard";
-export { StatusWidget } from "./StatusWidget";
-
-export type { AgentPerformance } from "./AgentPerformanceTable";
-export type { RecordingItem } from "./RecentRecordingsTable";
-export type { Alert } from "./AlertCenterCard";
-export type { WidgetStatus } from "./StatusWidget";
+export { StatusWidget, type WidgetStatus } from "./StatusWidget";
+export { FooterInsights } from "./FooterInsights";
+export { CircularProgress } from "./CircularProgress";

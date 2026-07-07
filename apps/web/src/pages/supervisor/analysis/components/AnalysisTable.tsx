@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Play, RefreshCw, Download, BookOpen } from "lucide-react";
+import { FileText, Play, RefreshCw, Download, BookOpen, Clock, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import StatusBadge from "./StatusBadge";
@@ -30,6 +30,144 @@ const TooltipText = ({ text, className, title }: { text: string; className?: str
         </div>
         <div className="absolute left-1/2 -bottom-[5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface"></div>
       </div>
+    </div>
+  );
+};
+
+/**
+ * Safely convert any value to a valid number or null
+ */
+const safeParseNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  
+  // If it's already a number, check if it's finite
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  
+  // If it's a string, try to parse it
+  if (typeof value === "string") {
+    // Ignore non-numeric strings like "Pending", "N/A", etc.
+    const trimmed = value.trim();
+    if (trimmed === "" || /[a-zA-Z]/.test(trimmed)) {
+      return null;
+    }
+    
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  
+  return null;
+};
+
+/**
+ * Get opening delay badge color and label based on delay in seconds
+ * Now completely type-safe - will never crash on invalid input
+ */
+const getOpeningDelayBadge = (delayValue: number | string | null | undefined) => {
+  const delaySeconds = safeParseNumber(delayValue);
+  
+  if (delaySeconds === null) {
+    return { 
+      label: "N/A", 
+      color: "text-fg-subtle", 
+      bg: "bg-bg-muted border-border", 
+      tooltip: "Opening delay not available" 
+    };
+  }
+  
+  if (delaySeconds <= 2) {
+    return {
+      label: `${delaySeconds.toFixed(1)} sec`,
+      color: "text-success",
+      bg: "bg-success/10 border-success/30",
+      tooltip: "Excellent! Agent greeted customer promptly within 2 seconds.",
+    };
+  } else if (delaySeconds <= 5) {
+    return {
+      label: `${delaySeconds.toFixed(1)} sec`,
+      color: "text-warning",
+      bg: "bg-warning/10 border-warning/30",
+      tooltip: "Slight delay. Agent took 2-5 seconds before greeting.",
+    };
+  } else {
+    return {
+      label: `${delaySeconds.toFixed(1)} sec`,
+      color: "text-danger",
+      bg: "bg-danger/10 border-danger/30",
+      tooltip: "Late opening! Agent took more than 5 seconds to greet customer.",
+    };
+  }
+};
+
+/**
+ * Get AI score rating and stars based on percentage
+ */
+const getScoreRating = (score: number | null) => {
+  if (score === null) return { label: "Pending", stars: 0, color: "text-fg-subtle", tooltip: "Score not yet available" };
+  
+  if (score >= 90) {
+    return {
+      label: "Excellent",
+      stars: 5,
+      color: "text-success",
+      tooltip: "Outstanding customer interaction! Perfect score.",
+    };
+  } else if (score >= 80) {
+    return {
+      label: "Very Good",
+      stars: 4,
+      color: "text-success",
+      tooltip: "Very good performance with minor areas for improvement.",
+    };
+  } else if (score >= 70) {
+    return {
+      label: "Good",
+      stars: 4,
+      color: "text-warning",
+      tooltip: "Good overall quality. Some improvement possible.",
+    };
+  } else if (score >= 60) {
+    return {
+      label: "Average",
+      stars: 3,
+      color: "text-warning",
+      tooltip: "Average performance. Needs noticeable improvement.",
+    };
+  } else if (score >= 50) {
+    return {
+      label: "Needs Improvement",
+      stars: 2,
+      color: "text-danger",
+      tooltip: "Below expectations. Supervisor coaching recommended.",
+    };
+  } else {
+    return {
+      label: "Poor",
+      stars: 1,
+      color: "text-danger",
+      tooltip: "Poor performance. Immediate review required.",
+    };
+  }
+};
+
+/**
+ * Render star rating visual
+ */
+const StarRating = ({ count, color }: { count: number; color: string }) => {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <Star
+          key={i}
+          className={cn(
+            "h-3 w-3",
+            i < count ? `${color} fill-current` : "text-fg-subtle/30"
+          )}
+        />
+      ))}
     </div>
   );
 };
@@ -246,6 +384,9 @@ const AnalysisTable = ({
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle whitespace-nowrap">
                   Opening Status
                 </th>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle whitespace-nowrap">
+                  Opening Delay
+                </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
                   Tone
                 </th>
@@ -308,18 +449,43 @@ const AnalysisTable = ({
                       </td>
                       <td className="px-6 py-4">
                         {item.score !== null ? (
-                          <span
-                            className={cn(
-                              "inline-flex items-center rounded-md border px-2 py-1 text-sm font-bold shadow-sm transition-transform hover:scale-105",
-                              item.score >= 90
-                                ? "border-success/30 bg-success/10 text-success"
-                                : item.score >= 70
-                                  ? "border-warning/30 bg-warning/10 text-warning"
-                                  : "border-danger/30 bg-danger/10 text-danger",
-                            )}
-                          >
-                            {item.score}%
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-md border px-2 py-1 text-sm font-bold shadow-sm transition-transform hover:scale-105",
+                                item.score >= 90
+                                  ? "border-success/30 bg-success/10 text-success"
+                                  : item.score >= 80
+                                    ? "border-success/30 bg-success/10 text-success"
+                                    : item.score >= 70
+                                      ? "border-warning/30 bg-warning/10 text-warning"
+                                      : item.score >= 60
+                                        ? "border-warning/30 bg-warning/10 text-warning"
+                                        : "border-danger/30 bg-danger/10 text-danger",
+                              )}
+                            >
+                              {item.score}%
+                            </span>
+                            {(() => {
+                              const rating = getScoreRating(item.score);
+                              return (
+                                <div className="group/rating relative">
+                                  <div className="flex flex-col items-start gap-0.5">
+                                    <StarRating count={rating.stars} color={rating.color} />
+                                    <span className={cn("text-[10px] font-semibold", rating.color)}>
+                                      {rating.label}
+                                    </span>
+                                  </div>
+                                  <div className="pointer-events-none invisible absolute z-[100] bottom-full left-0 mb-2 w-max max-w-[200px] opacity-0 transition-all duration-300 group-hover/rating:visible group-hover/rating:opacity-100">
+                                    <div className="rounded-md bg-surface border border-border shadow-elev-2 px-3 py-2 text-xs text-fg whitespace-normal text-left shadow-lg">
+                                      {rating.tooltip}
+                                    </div>
+                                    <div className="absolute left-4 -bottom-[5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface"></div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         ) : (
                           <span
                             className={cn(
@@ -344,6 +510,52 @@ const AnalysisTable = ({
                           text={displayField(item.openingStatus)} 
                           className={cn("text-sm", isInProgress ? "text-info italic" : "text-fg")} 
                         />
+                      </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const openingDelay = item.openingDelay;
+                          
+                          // If record is still being processed, show status
+                          if (isInProgress) {
+                            return (
+                              <span className="text-sm text-info italic">
+                                Pending
+                              </span>
+                            );
+                          }
+                          
+                          // Try to parse the delay value safely
+                          const delaySeconds = safeParseNumber(openingDelay);
+                          
+                          // If no valid delay and analysis is complete, show "—"
+                          if (delaySeconds === null) {
+                            return <span className="text-sm text-fg-subtle">—</span>;
+                          }
+                          
+                          // Get the badge configuration
+                          const badge = getOpeningDelayBadge(delaySeconds);
+                          
+                          return (
+                            <div className="group/delay relative inline-flex">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold transition-transform hover:scale-105",
+                                  badge.bg,
+                                  badge.color
+                                )}
+                              >
+                                <Clock className="h-3 w-3" />
+                                {badge.label}
+                              </span>
+                              <div className="pointer-events-none invisible absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[220px] opacity-0 transition-all duration-300 group-hover/delay:visible group-hover/delay:opacity-100">
+                                <div className="rounded-md bg-surface border border-border shadow-elev-2 px-3 py-2 text-xs text-fg whitespace-normal text-left shadow-lg">
+                                  {badge.tooltip}
+                                </div>
+                                <div className="absolute left-1/2 -bottom-[5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface"></div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         <TooltipText 
