@@ -17,13 +17,13 @@ export declare class UsersService implements OnModuleInit {
     onModuleInit(): Promise<void>;
     findByUsername(username: string): Promise<{
         id: string;
-        username: string;
-        passwordHash: string;
-        name: string;
-        role: import("@prisma/client").$Enums.Role;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        username: string;
+        passwordHash: string;
+        role: import("@prisma/client").$Enums.Role;
+        isActive: boolean;
     } | null>;
     listUsers(filter?: {
         role?: Role;
@@ -36,12 +36,12 @@ export declare class UsersService implements OnModuleInit {
         role: Role;
     }): Promise<{
         id: string;
-        username: string;
-        passwordHash: string;
-        name: string;
-        role: import("@prisma/client").$Enums.Role;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
+        username: string;
+        passwordHash: string;
+        role: import("@prisma/client").$Enums.Role;
+        isActive: boolean;
     }>;
 }
