@@ -268,6 +268,9 @@ export class AnalysisService implements OnModuleInit {
       let rawTranscript = "";
       let timestampedTranscript = "";
       let detectedLanguage = "";
+      let calculatedDelaySeconds: number | null = null;
+      let calculatedDelayRating = "Unknown";
+      let calculatedDelayReason = "Unable to determine initial silence.";
       let transcribeErrorOccurred: any = null;
       const transcribeRetryDelays = [2000, 5000, 10000];
 
@@ -295,8 +298,27 @@ export class AnalysisService implements OnModuleInit {
             timestampedTranscript = transcriptionResult.segments
               .map((s: any) => `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s] ${s.text}`)
               .join("\n");
+              
+            // Calculate Audio-based Opening Delay
+            calculatedDelaySeconds = transcriptionResult.segments[0].start;
+            if (calculatedDelaySeconds <= 2) {
+              calculatedDelayRating = "Good Opening";
+            } else if (calculatedDelaySeconds <= 5) {
+              calculatedDelayRating = "Slight Delay";
+            } else if (calculatedDelaySeconds <= 8) {
+              calculatedDelayRating = "Delayed Opening";
+            } else {
+              calculatedDelayRating = "Very Late Opening";
+            }
+            calculatedDelayReason = `Calculated automatically based on initial audio silence of ${calculatedDelaySeconds.toFixed(1)} seconds.`;
+            
           } else {
             timestampedTranscript = rawTranscript;
+            if (rawTranscript && rawTranscript.trim() !== "") {
+              calculatedDelaySeconds = 0;
+              calculatedDelayRating = "Good Opening";
+              calculatedDelayReason = "Speech detected but no timestamps available, assuming zero delay.";
+            }
           }
           
           if (rawTranscript && rawTranscript.trim() !== "") {
@@ -348,7 +370,14 @@ export class AnalysisService implements OnModuleInit {
       const aiStart = Date.now();
 
       // 4. Run AI Analysis via local Ollama Service
-      const parsedResult = await this.ollamaAnalysisService.analyzeTranscript(timestampedTranscript.trim());
+      const parsedResult = await this.ollamaAnalysisService.analyzeTranscript(
+        timestampedTranscript.trim(),
+        {
+          delaySeconds: calculatedDelaySeconds,
+          rating: calculatedDelayRating,
+          reason: calculatedDelayReason
+        }
+      );
       const aiDuration = Date.now() - aiStart;
       this.logger.log(`[AI][${id}] Ollama analysis completed in ${aiDuration}ms`);
 
@@ -704,25 +733,33 @@ export class AnalysisService implements OnModuleInit {
       },
     });
 
-    const completedRecords = await this.prisma.recording.findMany({
-      where: { ...where, status: 'Completed' },
-      select: { score: true },
+    const avgScoreResult = await this.prisma.recording.aggregate({
+      _avg: {
+        score: true,
+      },
+      _count: {
+        score: true,
+      },
+      where: {
+        ...where,
+        status: 'Completed',
+        score: {
+          not: null,
+        },
+      },
     });
-
-    const scoredRecords = completedRecords.filter(r => typeof r.score === 'number' && r.score > 0);
-    const avgScore = scoredRecords.length > 0
-      ? Math.round(scoredRecords.reduce((acc, curr) => acc + (curr.score as number), 0) / scoredRecords.length)
-      : 0;
 
     return {
       totalAudits: total,
       reviewedCount: completed,
       pendingReviewCount: pending,
       fatalCount: failed,
-      averageScore: avgScore,
+      averageScore: avgScoreResult._avg.score || 0,
       publishedCount: completed,
-      latestScore: avgScore,
-      latestAuditAt: new Date().toISOString()
+      latestScore: avgScoreResult._avg.score || 0,
+      latestAuditAt: new Date().toISOString(),
+      avgAiScore: avgScoreResult._avg.score || 0,
+      scoredCalls: avgScoreResult._count.score || 0,
     };
   }
 
@@ -743,6 +780,9 @@ export class AnalysisService implements OnModuleInit {
       _avg: {
         score: true,
       },
+      _count: {
+        score: true,
+      },
       where: {
         status: 'Completed',
         score: {
@@ -756,6 +796,7 @@ export class AnalysisService implements OnModuleInit {
       processedCalls: completed,
       pendingCalls: pending,
       avgAiScore: avgScoreResult._avg.score || 0,
+      scoredCalls: avgScoreResult._count.score || 0,
     };
   }
 

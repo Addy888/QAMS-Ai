@@ -52,45 +52,37 @@ const getOpeningDelayBadge = (delaySeconds: number | null, rating: string | null
   
   const ratingLower = rating?.toLowerCase() || "";
   
-  if (ratingLower === "excellent") {
+  if (ratingLower === "good opening") {
     return {
       label: `🟢 ${delaySeconds.toFixed(1)} sec`,
-      subLabel: "Excellent",
+      subLabel: "Good Opening",
       color: "text-success",
       bg: "bg-success/10 border-success/30",
       tooltip: reason || "Excellent! Agent greeted customer promptly.",
     };
-  } else if (ratingLower === "good") {
-    return {
-      label: `🟢 ${delaySeconds.toFixed(1)} sec`,
-      subLabel: "Good",
-      color: "text-success",
-      bg: "bg-success/10 border-success/30",
-      tooltip: reason || "Slight delay but good.",
-    };
-  } else if (ratingLower === "average") {
+  } else if (ratingLower === "slight delay") {
     return {
       label: `🟡 ${delaySeconds.toFixed(1)} sec`,
-      subLabel: "Average",
+      subLabel: "Slight Delay",
       color: "text-warning",
       bg: "bg-warning/10 border-warning/30",
-      tooltip: reason || "Average delay.",
+      tooltip: reason || "Slight delay but acceptable.",
     };
-  } else if (ratingLower === "poor") {
+  } else if (ratingLower === "delayed opening") {
     return {
       label: `🟠 ${delaySeconds.toFixed(1)} sec`,
-      subLabel: "Poor",
-      color: "text-danger",
-      bg: "bg-danger/10 border-danger/30",
-      tooltip: reason || "Poor delay. Took too long.",
+      subLabel: "Delayed Opening",
+      color: "text-warning",
+      bg: "bg-warning/10 border-warning/30",
+      tooltip: reason || "Agent took too long to greet the customer.",
     };
-  } else if (ratingLower === "critical") {
+  } else if (ratingLower === "very late opening") {
     return {
       label: `🔴 ${delaySeconds.toFixed(1)} sec`,
-      subLabel: "Critical",
+      subLabel: "Very Late Opening",
       color: "text-danger",
       bg: "bg-danger/10 border-danger/30",
-      tooltip: reason || "Critical delay! Agent took very long.",
+      tooltip: reason || "Critical delay! Agent took a very long time.",
     };
   }
 

@@ -28,7 +28,10 @@ export class OllamaAnalysisService {
   private recentAnalyses: string[] = [];
   private readonly MAX_RECENT = 20;
 
-  async analyzeTranscript(transcript: string): Promise<AIAnalysisResult> {
+  async analyzeTranscript(
+    transcript: string,
+    existingDelayData?: { delaySeconds: number | null; rating: string; reason: string }
+  ): Promise<AIAnalysisResult> {
     const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
     const ollamaModel = process.env.OLLAMA_MODEL || "llama3";
     const ollamaTimeout = Number(process.env.OLLAMA_TIMEOUT_MS) || 300000;
@@ -61,12 +64,7 @@ Transcript statistics for context:
 The transcript may contain Hindi, Marathi, Hinglish, or English.
 
 Evaluate these specific aspects and let them DIRECTLY affect your scoring:
-- opening delay (how many seconds before the agent greets or starts assisting?)
-  - The transcript contains timestamps like [0.00s - 1.73s]. Use these to determine EXACTLY when the first meaningful agent response started.
-  - Ignore ringing, silence, breathing, background noise, hold music, and customer waiting.
-  - Detect the first meaningful agent response.
-  - Rating Rules: 0-2 sec = Excellent, 2-5 sec = Good, 5-8 sec = Average, 8-12 sec = Poor, >12 sec = Critical.
-  - If you cannot determine the delay confidently, use null and "Unknown".
+- Opening Delay Context: The opening delay has already been mathematically calculated as ${existingDelayData?.delaySeconds ?? 'Unknown'} seconds (${existingDelayData?.rating ?? 'Unknown'}). Do NOT try to recalculate it. Use this context when generating your summary or coaching feedback if relevant.
 - empathy (does the agent show genuine concern?)
 - confidence (is the agent sure of their responses?)
 - interruptions (does anyone cut the other person off?)
@@ -93,9 +91,6 @@ Return ONLY valid JSON matching this exact structure:
   "sentiment": "specific sentiment",
   "score": <number 35-95 based on actual quality>,
   "openingStatus": "specific opening assessment",
-  "openingDelaySeconds": <number or null>,
-  "openingDelayRating": "Excellent/Good/Average/Poor/Critical/Unknown",
-  "openingDelayReason": "Brief reason explaining the delay calculation",
   "tone": "unique varied tone descriptor",
   "energyLevel": "unique varied energy descriptor",
   "activeListening": "unique varied listening descriptor",
@@ -117,7 +112,7 @@ ${transcript}`;
       console.log("Sending prompt:", prompt);
       console.log("----------------------------------------");
       
-      let result = await this.callOllama(ollamaUrl, ollamaModel, prompt, ollamaTimeout);
+      let result = await this.callOllama(ollamaUrl, ollamaModel, prompt, ollamaTimeout, 0.85, 0.95, existingDelayData);
       const durationMs = Date.now() - startTime;
       this.logger.log(`Ollama API response received in ${durationMs}ms`);
 
@@ -131,7 +126,7 @@ ${transcript}`;
         const retryPrompt = prompt.replace(analysisNonce, retryNonce) + 
           `\n\nIMPORTANT: Your previous analysis was too generic. Be MORE specific and VARY your labels and score significantly.`;
         
-        result = await this.callOllama(ollamaUrl, ollamaModel, retryPrompt, ollamaTimeout, 0.95, 0.98);
+        result = await this.callOllama(ollamaUrl, ollamaModel, retryPrompt, ollamaTimeout, 0.95, 0.98, existingDelayData);
         this.logger.log(`[Duplicate Detection] Regenerated analysis completed.`);
       }
 
@@ -156,7 +151,8 @@ ${transcript}`;
     prompt: string, 
     timeout: number,
     temperature = 0.85,
-    topP = 0.95
+    topP = 0.95,
+    existingDelayData?: { delaySeconds: number | null; rating: string; reason: string }
   ): Promise<AIAnalysisResult> {
     try {
       const response = await axios.post(
@@ -180,7 +176,7 @@ ${transcript}`;
       console.log("----------------------------------------");
       console.log("Raw Ollama Response:", raw);
       console.log("----------------------------------------");
-      return this.parseJSONSafely(raw, prompt);
+      return this.parseJSONSafely(raw, prompt, existingDelayData);
     } catch (error: any) {
       this.logger.error(`Error in callOllama: ${error.message}`);
       throw error;
@@ -208,7 +204,11 @@ ${transcript}`;
     }
   }
 
-  private parseJSONSafely(raw: string, transcript: string): AIAnalysisResult {
+  private parseJSONSafely(
+    raw: string, 
+    transcript: string, 
+    existingDelayData?: { delaySeconds: number | null; rating: string; reason: string }
+  ): AIAnalysisResult {
     let cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
     
     // Attempt to extract json block if there's surrounding text
@@ -228,21 +228,10 @@ ${transcript}`;
       }
       score = Math.max(35, Math.min(95, score));
 
-      // Safely parse openingDelaySeconds (handling potential snake_case or wrong casing)
-      let openingDelaySeconds: number | null = null;
-      const rawDelay = parsed.openingDelaySeconds !== undefined ? parsed.openingDelaySeconds 
-                     : parsed.opening_delay_seconds !== undefined ? parsed.opening_delay_seconds
-                     : parsed.delaySeconds !== undefined ? parsed.delaySeconds : null;
-                     
-      if (rawDelay !== null && rawDelay !== undefined) {
-        const parsedDelay = Number(rawDelay);
-        if (Number.isFinite(parsedDelay)) {
-          openingDelaySeconds = parsedDelay;
-        }
-      }
-
-      const rawRating = parsed.openingDelayRating || parsed.opening_delay_rating || parsed.delayRating || "Unknown";
-      const rawReason = parsed.openingDelayReason || parsed.opening_delay_reason || parsed.delayReason || "Unknown";
+      // Use provided existing delay data instead of attempting to parse from AI response
+      const openingDelaySeconds = existingDelayData?.delaySeconds ?? null;
+      const rawRating = existingDelayData?.rating || "Unknown";
+      const rawReason = existingDelayData?.reason || "Unknown";
 
       const parsedResult = {
         language: parsed.language || "English",

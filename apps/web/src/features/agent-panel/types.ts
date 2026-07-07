@@ -11,6 +11,8 @@ export interface AgentPanelSummary {
   averageScore: number | null;
   latestScore: number | null;
   latestAuditAt: string | null;
+  avgAiScore: number;
+  scoredCalls: number;
 }
 
 export interface AgentProject {

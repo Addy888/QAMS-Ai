@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import PageContainer from "@/layouts/PageContainer";
 import { StatCard } from "@/components/ui/StatCard";
-import { getAgentPanelSummary, getAgentAnalysis } from "@/features/agent-panel/api";
-import type { AgentPanelSummary, AgentAnalysisRecord } from "@/features/agent-panel/types";
+import { getAgentPanelSummary } from "@/features/agent-panel/api";
+import type { AgentPanelSummary } from "@/features/agent-panel/types";
 
 /**
  * Simplified Agent Dashboard
@@ -17,7 +17,6 @@ import type { AgentPanelSummary, AgentAnalysisRecord } from "@/features/agent-pa
  */
 export default function AgentDashboard() {
   const [summary, setSummary] = useState<AgentPanelSummary | null>(null);
-  const [analysisRecords, setAnalysisRecords] = useState<AgentAnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,12 +24,8 @@ export default function AgentDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, analysisData] = await Promise.all([
-        getAgentPanelSummary(),
-        getAgentAnalysis(),
-      ]);
+      const summaryData = await getAgentPanelSummary();
       setSummary(summaryData);
-      setAnalysisRecords(analysisData.data);
     } catch (e) {
       console.error(e);
       setError("Could not load dashboard data.");
@@ -43,15 +38,9 @@ export default function AgentDashboard() {
     void fetchAll();
   }, [fetchAll]);
 
-  // Calculate average AI score from analysis records
-  const avgAIScore = analysisRecords.length > 0
-    ? analysisRecords
-        .filter((r) => r.score !== null)
-        .reduce((sum, r, _, arr) => {
-          const total = sum + (r.score ?? 0);
-          return arr.length > 0 ? total / arr.length : 0;
-        }, 0)
-    : null;
+  // Average AI score and scored calls count are now computed directly by the backend
+  const avgAIScore = summary?.avgAiScore ?? null;
+  const scoredCalls = summary?.scoredCalls ?? 0;
 
   return (
     <PageContainer
@@ -91,15 +80,15 @@ export default function AgentDashboard() {
         <StatCard
           label="Avg AI Score"
           value={
-            avgAIScore !== null
-              ? `${Math.round(avgAIScore * 10) / 10}%`
+            scoredCalls > 0 && avgAIScore !== null
+              ? `${Math.round(avgAIScore)}%`
               : "—"
           }
           icon={BrainCircuit}
           description={
-            analysisRecords.length > 0
-              ? `Based on ${analysisRecords.length} analysis${analysisRecords.length === 1 ? "" : "es"}`
-              : "No AI analysis yet"
+            scoredCalls > 0
+              ? `Based on ${scoredCalls} completed analys${scoredCalls === 1 ? "is" : "es"}`
+              : "No completed analyses yet"
           }
           loading={loading}
         />

@@ -10,6 +10,7 @@ const StatsCards = () => {
     processedCalls: 0,
     pendingCalls: 0,
     avgAiScore: 0,
+    scoredCalls: 0,
   });
 
   const fetchStats = () => {
@@ -36,7 +37,7 @@ const StatsCards = () => {
   const completed = statsData.processedCalls;
   const pending = statsData.pendingCalls;
   const avgScore = Math.round(statsData.avgAiScore);
-
+  const scoredCount = statsData.scoredCalls;
 
   const stats = [
     {
@@ -59,9 +60,11 @@ const StatsCards = () => {
     },
     {
       label:       "Avg AI Score",
-      value:       `${avgScore}%`,
+      value:       scoredCount > 0 ? `${avgScore}%` : "—",
       icon:        BarChart3,
-      description: "Overall quality performance",
+      description: scoredCount > 0 
+                    ? `Based on ${scoredCount} completed analys${scoredCount === 1 ? 'is' : 'es'}` 
+                    : "No completed analyses yet",
     },
   ];
 
