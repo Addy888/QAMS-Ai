@@ -7,7 +7,7 @@ import AnalysisTable from "./components/AnalysisTable";
 import { Download, RefreshCw, Loader2, Upload } from "lucide-react";
 import { type AnalysisRecord } from "@/services/analysis.service";
 import { toast } from "sonner";
-import { getApiBaseUrl, api } from "@/services/api";
+import { api } from "@/services/api";
 
 const AnalysisDashboard = () => {
   const [analysisRecords, setAnalysisRecords] = useState<AnalysisRecord[]>([]);
